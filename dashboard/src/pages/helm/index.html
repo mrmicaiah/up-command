@@ -93,16 +93,18 @@
           Tasks.list({ status: 'open' }),
           Tasks.list({ status: 'open', is_active: true })
         ]);
-        document.getElementById('stat-open').textContent = openRes.data?.length || 0;
-        document.getElementById('stat-active').textContent = activeRes.data?.length || 0;
+        // API returns { tasks: [...], count: N } not { data: [...] }
+        document.getElementById('stat-open').textContent = openRes.tasks?.length || openRes.count || 0;
+        document.getElementById('stat-active').textContent = activeRes.tasks?.length || 0;
         
         const today = new Date().toISOString().split('T')[0];
         const doneRes = await Tasks.list({ status: 'done', completed_after: today });
-        document.getElementById('stat-done').textContent = doneRes.data?.length || 0;
+        document.getElementById('stat-done').textContent = doneRes.tasks?.length || 0;
         
         const sprint = await Sprints.current();
-        if (sprint?.data) {
-          const tasks = sprint.data.tasks || [];
+        // API returns { sprint: {...}, tasks: [...] } not { data: {...} }
+        if (sprint?.sprint) {
+          const tasks = sprint.tasks || [];
           const done = tasks.filter(t => t.status === 'done').length;
           document.getElementById('stat-sprint').textContent = `${done}/${tasks.length}`;
         } else {
@@ -117,7 +119,8 @@
       const container = document.getElementById('active-tasks');
       try {
         const res = await Tasks.list({ status: 'open', is_active: true, limit: 7 });
-        const tasks = res.data || [];
+        // API returns { tasks: [...] } not { data: [...] }
+        const tasks = res.tasks || [];
         if (tasks.length === 0) {
           container.innerHTML = '<div class="empty-state"><p>No active tasks</p><button class="btn btn-secondary btn-sm mt-3" onclick="showAddTaskModal()">Add Task</button></div>';
           return;
@@ -132,7 +135,8 @@
       const container = document.getElementById('coming-up');
       try {
         const res = await Tasks.list({ status: 'open', has_due_date: true, limit: 5 });
-        const tasks = (res.data || []).filter(t => t.due_date);
+        // API returns { tasks: [...] } not { data: [...] }
+        const tasks = (res.tasks || []).filter(t => t.due_date);
         if (tasks.length === 0) {
           container.innerHTML = '<div class="empty-state"><p>No upcoming deadlines</p></div>';
           return;
@@ -147,7 +151,8 @@
       const container = document.getElementById('sprint-card');
       try {
         const res = await Sprints.current();
-        if (!res?.data) {
+        // API returns { sprint: {...}, tasks: [...] } not { data: {...} }
+        if (!res?.sprint) {
           container.innerHTML = `
             <div class="sprint-header"><span class="sprint-title">🏃 No Active Sprint</span></div>
             <p class="text-muted text-sm mb-4">Start a sprint to track your goals.</p>
@@ -155,8 +160,8 @@
           `;
           return;
         }
-        const s = res.data;
-        const tasks = s.tasks || [];
+        const s = res.sprint;
+        const tasks = res.tasks || [];
         const done = tasks.filter(t => t.status === 'done').length;
         const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
         const daysLeft = Math.ceil((new Date(s.end_date) - new Date()) / 86400000);
@@ -184,7 +189,8 @@
       const container = document.getElementById('routines-list');
       try {
         const res = await Tasks.list({ is_recurring: true, limit: 10 });
-        const routines = res.data || [];
+        // API returns { tasks: [...] } not { data: [...] }
+        const routines = res.tasks || [];
         if (routines.length === 0) {
           container.innerHTML = '<div class="empty-state"><p>No routines set up</p><a href="routines.html" class="btn btn-secondary btn-sm mt-3">Add Routine</a></div>';
           return;
