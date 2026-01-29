@@ -6,12 +6,23 @@
 import type { Env, OAuthProvider, GoogleService } from '../types.js';
 
 // ==================
-// CONSTANTS
+// API URLS
 // ==================
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 export const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 export const GITHUB_AUTH_URL = 'https://github.com/login/oauth/authorize';
+
+// Google API URLs
+export const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3';
+export const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3';
+export const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1';
+export const BLOGGER_API_URL = 'https://www.googleapis.com/blogger/v3';
+export const PEOPLE_API_URL = 'https://people.googleapis.com/v1';
+export const ANALYTICS_DATA_API = 'https://analyticsdata.googleapis.com/v1beta';
+
+// GitHub API URL
+export const GITHUB_API_URL = 'https://api.github.com';
 
 export const SERVICE_NAMES: Record<string, string> = {
   google_drive: 'Google Drive',
@@ -64,7 +75,7 @@ export const GITHUB_SCOPES = ['repo', 'read:user'];
 // ==================
 
 /**
- * Get a valid access token for a service, refreshing if needed
+ * Get a valid access token for a Google service, refreshing if needed
  */
 export async function getValidToken(
   env: Env,
@@ -95,6 +106,19 @@ export async function getValidToken(
   }
 
   return result.access_token;
+}
+
+/**
+ * Get GitHub access token (no refresh needed - tokens don't expire)
+ */
+export async function getGitHubToken(
+  env: Env,
+  userId: string
+): Promise<string | null> {
+  const result = await env.DB.prepare(
+    'SELECT access_token FROM oauth_tokens WHERE user_id = ? AND provider = ?'
+  ).bind(userId, 'github').first<{ access_token: string }>();
+  return result?.access_token || null;
 }
 
 /**
@@ -173,6 +197,21 @@ export function buildGitHubAuthUrl(
 }
 
 /**
+ * Universal OAuth URL builder (for connect_service)
+ */
+export function buildOAuthUrl(
+  env: Env,
+  userId: string,
+  service: OAuthProvider,
+  workerUrl: string
+): string {
+  if (service === 'github') {
+    return buildGitHubAuthUrl(env, userId, workerUrl);
+  }
+  return buildGoogleAuthUrl(env, userId, service as GoogleService, workerUrl);
+}
+
+/**
  * Check if a service is connected
  */
 export async function isServiceConnected(
@@ -210,4 +249,55 @@ export async function getConnectedServices(
     'SELECT provider FROM oauth_tokens WHERE user_id = ?'
   ).bind(userId).all();
   return (result.results || []).map((r: any) => r.provider as OAuthProvider);
+}
+
+/**
+ * Find or create a folder path in Google Drive
+ */
+export async function findOrCreateFolderPath(
+  token: string,
+  folderPath: string
+): Promise<{ id: string; name: string } | null> {
+  const parts = folderPath.split('/').filter(p => p.trim());
+  let parentId = 'root';
+  let currentFolder = { id: 'root', name: 'My Drive' };
+
+  for (const folderName of parts) {
+    // Search for existing folder
+    const query = `'${parentId}' in parents and name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const searchResp = await fetch(
+      `${DRIVE_API_URL}/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+
+    if (!searchResp.ok) return null;
+
+    const data: any = await searchResp.json();
+
+    if (data.files && data.files.length > 0) {
+      currentFolder = data.files[0];
+      parentId = currentFolder.id;
+    } else {
+      // Create the folder
+      const createResp = await fetch(`${DRIVE_API_URL}/files`, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: [parentId],
+        }),
+      });
+
+      if (!createResp.ok) return null;
+
+      currentFolder = await createResp.json();
+      parentId = currentFolder.id;
+    }
+  }
+
+  return currentFolder;
 }
