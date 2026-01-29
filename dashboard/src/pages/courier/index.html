@@ -8,205 +8,47 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../../shared/styles.css">
-  <style>
-    .page-header { margin-bottom: var(--space-8); }
-    .page-title { font-family: var(--font-display); font-size: var(--text-4xl); font-weight: var(--font-semibold); margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-3); }
-    .page-subtitle { color: var(--text-secondary); font-size: var(--text-lg); }
-    
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-8); }
-    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); transition: all var(--transition-fast); }
-    .stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
-    .stat-label { font-size: var(--text-xs); font-weight: var(--font-medium); color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-2); }
-    .stat-value { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: var(--font-bold); }
-    
-    .quick-actions { display: flex; gap: var(--space-3); margin-bottom: var(--space-8); }
-    
-    .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); }
-    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } }
-    
-    .section-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-6); }
-    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
-    .section-title { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--font-semibold); display: flex; align-items: center; gap: var(--space-2); }
-    
-    .list-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); transition: background var(--transition-fast); cursor: pointer; }
-    .list-item:hover { background: var(--bg-hover); }
-    .list-icon { width: 32px; height: 32px; border-radius: var(--radius-md); background: var(--accent-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .list-content { flex: 1; min-width: 0; }
-    .list-name { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-primary); }
-    .list-meta { font-size: var(--text-xs); color: var(--text-muted); }
-    
-    .sequence-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); transition: background var(--transition-fast); cursor: pointer; }
-    .sequence-item:hover { background: var(--bg-hover); }
-    .sequence-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .sequence-status.active { background: var(--success); }
-    .sequence-status.paused { background: var(--warning); }
-    .sequence-status.draft { background: var(--text-muted); }
-    .sequence-content { flex: 1; min-width: 0; }
-    .sequence-name { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-primary); }
-    .sequence-meta { font-size: var(--text-xs); color: var(--text-muted); }
-    
-    .campaign-item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); transition: background var(--transition-fast); cursor: pointer; }
-    .campaign-item:hover { background: var(--bg-hover); }
-    .campaign-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: var(--text-lg); }
-    .campaign-icon.draft { background: var(--bg-hover); }
-    .campaign-icon.scheduled { background: var(--info-muted); }
-    .campaign-icon.sent { background: var(--success-muted); }
-    .campaign-content { flex: 1; min-width: 0; }
-    .campaign-title { font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text-primary); margin-bottom: var(--space-1); }
-    .campaign-meta { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); }
-    .campaign-stats { display: flex; gap: var(--space-3); font-size: var(--text-xs); color: var(--text-secondary); }
-    
-    .empty-state { text-align: center; padding: var(--space-8); color: var(--text-muted); }
-    .empty-state-icon { font-size: 2rem; margin-bottom: var(--space-3); }
-    .loading-placeholder { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); }
-    
-    /* Login Modal */
-    .login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .login-modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-8); width: 100%; max-width: 360px; text-align: center; }
-    .login-title { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--font-semibold); margin-bottom: var(--space-2); }
-    .login-subtitle { color: var(--text-secondary); margin-bottom: var(--space-6); }
-    .pin-input { width: 100%; padding: var(--space-4); font-size: var(--text-2xl); text-align: center; letter-spacing: 0.5em; background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-primary); margin-bottom: var(--space-4); }
-    .pin-input:focus { outline: none; border-color: var(--accent); }
-    .login-error { color: var(--danger); font-size: var(--text-sm); margin-bottom: var(--space-4); display: none; }
-    .login-error.show { display: block; }
-  </style>
+  <link rel="stylesheet" href="courier.css">
 </head>
 <body>
   <script src="../../shared/api.js"></script>
   <script src="../../shared/auth.js"></script>
   <script src="../../shared/nav.js"></script>
+  <script src="courier-api.js"></script>
   
   <script>
-    const COURIER_API = 'https://email-bot-server.micaiah-tasks.workers.dev';
-    const COURIER_TOKEN_KEY = 'courier_token';
-    
-    let courierToken = localStorage.getItem(COURIER_TOKEN_KEY);
-    
-    async function courierApi(endpoint, options = {}) {
-      if (!courierToken) {
-        showLoginModal();
-        throw new Error('Not authenticated');
-      }
-      
-      const url = `${COURIER_API}${endpoint}`;
-      const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${courierToken}`,
-        ...options.headers
-      };
-      
-      const response = await fetch(url, { ...options, headers });
-      
-      if (response.status === 401) {
-        localStorage.removeItem(COURIER_TOKEN_KEY);
-        courierToken = null;
-        showLoginModal();
-        throw new Error('Session expired');
-      }
-      
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || `HTTP ${response.status}`);
-      }
-      
-      const text = await response.text();
-      if (!text) return { success: true };
-      return JSON.parse(text);
-    }
-    
-    const CourierAPI = {
-      stats: () => courierApi('/api/stats'),
-      lists: () => courierApi('/api/lists'),
-      campaigns: (listId) => courierApi(`/api/emails${listId ? `?list_id=${listId}` : ''}`),
-      sequences: (listId) => courierApi(`/api/sequences${listId ? `?list_id=${listId}` : ''}`),
-      subscribers: (listId, limit = 50) => courierApi(`/api/subscribers?list_id=${listId}&limit=${limit}`)
-    };
-    
     document.addEventListener('DOMContentLoaded', async () => {
       const user = requireAuth();
       if (!user) return;
       
       const main = initLayout('courier', { showThread: false });
-      main.innerHTML = renderCourierPage(user);
+      main.innerHTML = renderPage();
       
-      if (!courierToken) {
-        showLoginModal();
+      if (!getCourierToken()) {
+        showCourierLogin(loadData);
       } else {
-        await loadCourierData();
+        await loadData();
       }
     });
     
-    function showLoginModal() {
-      const existing = document.getElementById('courier-login-overlay');
-      if (existing) return;
-      
-      const overlay = document.createElement('div');
-      overlay.id = 'courier-login-overlay';
-      overlay.className = 'login-overlay';
-      overlay.innerHTML = `
-        <div class="login-modal">
-          <div style="font-size: 3rem; margin-bottom: var(--space-4);">📧</div>
-          <h2 class="login-title">Courier Login</h2>
-          <p class="login-subtitle">Enter your PIN to access email marketing</p>
-          <div class="login-error" id="login-error">Invalid PIN</div>
-          <input type="password" class="pin-input" id="pin-input" maxlength="4" placeholder="••••" autofocus>
-          <button class="btn btn-primary btn-lg" style="width: 100%;" onclick="handleLogin()">Login</button>
-        </div>
-      `;
-      document.body.appendChild(overlay);
-      
-      document.getElementById('pin-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
-      });
-    }
-    
-    async function handleLogin() {
-      const pin = document.getElementById('pin-input').value;
-      const errorEl = document.getElementById('login-error');
-      
-      if (!pin || pin.length !== 4) {
-        errorEl.textContent = 'Enter 4-digit PIN';
-        errorEl.classList.add('show');
-        return;
-      }
-      
-      try {
-        const response = await fetch(`${COURIER_API}/api/dashboard/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success && data.token) {
-          courierToken = data.token;
-          localStorage.setItem(COURIER_TOKEN_KEY, data.token);
-          document.getElementById('courier-login-overlay').remove();
-          await loadCourierData();
-        } else {
-          errorEl.textContent = data.error || 'Invalid PIN';
-          errorEl.classList.add('show');
-          document.getElementById('pin-input').value = '';
-        }
-      } catch (err) {
-        errorEl.textContent = 'Connection failed';
-        errorEl.classList.add('show');
-      }
-    }
-    
-    function renderCourierPage(user) {
+    function renderPage() {
       return `
-        <header class="page-header">
-          <h1 class="page-title">📧 Courier</h1>
-          <p class="page-subtitle">Email marketing and automation</p>
+        <header class="courier-header">
+          <h1 class="courier-title">📧 Courier</h1>
+          <p class="courier-subtitle">Email marketing and automation</p>
+          <nav class="courier-nav">
+            <a href="index.html" class="courier-nav-item active">Overview</a>
+            <a href="lists.html" class="courier-nav-item">Lists</a>
+            <a href="campaigns.html" class="courier-nav-item">Campaigns</a>
+            <a href="sequences.html" class="courier-nav-item">Sequences</a>
+            <a href="subscribers.html" class="courier-nav-item">Subscribers</a>
+          </nav>
         </header>
         
         <div class="quick-actions">
-          <button class="btn btn-primary" onclick="alert('Coming soon')">✉️ New Campaign</button>
-          <button class="btn btn-secondary" onclick="alert('Coming soon')">📋 New List</button>
-          <button class="btn btn-secondary" onclick="alert('Coming soon')">🔄 New Sequence</button>
-          <button class="btn btn-ghost" onclick="logout()" style="margin-left: auto;">🚪 Logout</button>
+          <button class="btn btn-primary" onclick="location.href='campaigns.html?new=1'">✉️ New Campaign</button>
+          <button class="btn btn-secondary" onclick="location.href='lists.html?new=1'">📋 New List</button>
+          <button class="btn btn-ghost" onclick="courierLogout()" style="margin-left: auto;">🚪 Logout</button>
         </div>
         
         <div class="stats-grid">
@@ -232,6 +74,7 @@
           <div class="section-card">
             <div class="section-header">
               <h2 class="section-title">📋 Email Lists</h2>
+              <a href="lists.html" class="text-accent text-sm">View All →</a>
             </div>
             <div id="lists-container">
               <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading...</span></div>
@@ -241,6 +84,7 @@
           <div class="section-card">
             <div class="section-header">
               <h2 class="section-title">🔄 Sequences</h2>
+              <a href="sequences.html" class="text-accent text-sm">View All →</a>
             </div>
             <div id="sequences-container">
               <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading...</span></div>
@@ -250,6 +94,7 @@
           <div class="section-card" style="grid-column: span 2;">
             <div class="section-header">
               <h2 class="section-title">📨 Recent Campaigns</h2>
+              <a href="campaigns.html" class="text-accent text-sm">View All →</a>
             </div>
             <div id="campaigns-container">
               <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading...</span></div>
@@ -259,13 +104,7 @@
       `;
     }
     
-    function logout() {
-      localStorage.removeItem(COURIER_TOKEN_KEY);
-      courierToken = null;
-      showLoginModal();
-    }
-    
-    async function loadCourierData() {
+    async function loadData() {
       await Promise.all([
         loadStats(),
         loadLists(),
@@ -282,12 +121,10 @@
         document.getElementById('stat-campaigns').textContent = stats.campaigns_sent || 0;
         document.getElementById('stat-open-rate').textContent = (stats.avg_open_rate || 0).toFixed(1) + '%';
       } catch (err) {
-        if (err.message !== 'Not authenticated' && err.message !== 'Session expired') {
-          document.getElementById('stat-subscribers').textContent = '-';
-          document.getElementById('stat-lists').textContent = '-';
-          document.getElementById('stat-campaigns').textContent = '-';
-          document.getElementById('stat-open-rate').textContent = '-';
-        }
+        console.error('Stats error:', err);
+        ['stat-subscribers', 'stat-lists', 'stat-campaigns', 'stat-open-rate'].forEach(id => {
+          document.getElementById(id).textContent = '-';
+        });
       }
     }
     
@@ -298,12 +135,12 @@
         const lists = result.lists || [];
         
         if (lists.length === 0) {
-          container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><p>No email lists yet</p></div>`;
+          container.innerHTML = `<div class="empty-state"><p>No email lists yet</p></div>`;
           return;
         }
         
         container.innerHTML = lists.slice(0, 5).map(list => `
-          <div class="list-item">
+          <div class="list-item" onclick="location.href='lists.html?id=${list.id}'">
             <div class="list-icon">📧</div>
             <div class="list-content">
               <div class="list-name">${escapeHtml(list.name)}</div>
@@ -312,9 +149,7 @@
           </div>
         `).join('');
       } catch (err) {
-        if (err.message !== 'Not authenticated' && err.message !== 'Session expired') {
-          container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
-        }
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
     
@@ -325,12 +160,12 @@
         const sequences = result.sequences || [];
         
         if (sequences.length === 0) {
-          container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔄</div><p>No sequences yet</p></div>`;
+          container.innerHTML = `<div class="empty-state"><p>No sequences yet</p></div>`;
           return;
         }
         
         container.innerHTML = sequences.slice(0, 5).map(seq => `
-          <div class="sequence-item">
+          <div class="sequence-item" onclick="location.href='sequences.html?id=${seq.id}'">
             <div class="sequence-status ${seq.status || 'draft'}"></div>
             <div class="sequence-content">
               <div class="sequence-name">${escapeHtml(seq.name)}</div>
@@ -339,9 +174,7 @@
           </div>
         `).join('');
       } catch (err) {
-        if (err.message !== 'Not authenticated' && err.message !== 'Session expired') {
-          container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
-        }
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
     
@@ -352,14 +185,14 @@
         const campaigns = result.emails || [];
         
         if (campaigns.length === 0) {
-          container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📨</div><p>No campaigns yet</p></div>`;
+          container.innerHTML = `<div class="empty-state"><p>No campaigns yet</p></div>`;
           return;
         }
         
         container.innerHTML = `
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
             ${campaigns.slice(0, 6).map(c => `
-              <div class="campaign-item">
+              <div class="campaign-item" onclick="location.href='campaigns.html?id=${c.id}'">
                 <div class="campaign-icon ${c.status || 'draft'}">
                   ${c.status === 'sent' ? '✅' : c.status === 'scheduled' ? '📅' : '📝'}
                 </div>
@@ -369,7 +202,7 @@
                     <span class="badge badge-${c.status === 'sent' ? 'success' : 'default'}">${c.status || 'draft'}</span>
                   </div>
                   ${c.status === 'sent' ? `
-                    <div class="campaign-stats mt-2">
+                    <div class="campaign-stats">
                       <span>📤 ${c.sent_count || 0}</span>
                       <span>👀 ${c.open_count || 0}</span>
                       <span>🖱️ ${c.click_count || 0}</span>
@@ -381,9 +214,7 @@
           </div>
         `;
       } catch (err) {
-        if (err.message !== 'Not authenticated' && err.message !== 'Session expired') {
-          container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
-        }
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
     
