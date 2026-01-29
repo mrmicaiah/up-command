@@ -20,10 +20,15 @@
     let allSubscribers = [];
     let allLists = [];
     let selectedList = '';
+    let selectedListName = '';
     
     document.addEventListener('DOMContentLoaded', async () => {
       const user = requireAuth();
       if (!user) return;
+      
+      // Check for list filter in URL
+      const params = new URLSearchParams(window.location.search);
+      selectedList = params.get('list') || '';
       
       const main = initLayout('courier', { showThread: false });
       main.innerHTML = renderPage();
@@ -50,11 +55,15 @@
         </header>
         
         <div class="section-header" style="margin-bottom: var(--space-6);">
-          <h2 class="section-title">👥 Subscribers</h2>
-          <div style="display: flex; gap: var(--space-3);">
+          <div>
+            <h2 class="section-title">👥 Subscribers</h2>
+            <div id="list-breadcrumb" class="text-sm text-muted mt-1"></div>
+          </div>
+          <div style="display: flex; gap: var(--space-3); align-items: center;">
             <select id="list-filter" class="form-select" onchange="filterByList(this.value)">
               <option value="">All Lists</option>
             </select>
+            ${selectedList ? `<a href="subscribers.html" class="btn btn-ghost btn-sm">Clear Filter</a>` : ''}
           </div>
         </div>
         
@@ -74,7 +83,18 @@
         
         const listFilter = document.getElementById('list-filter');
         listFilter.innerHTML = '<option value="">All Lists</option>' + 
-          allLists.map(l => `<option value="${l.id}">${escapeHtml(l.name)} (${l.subscriber_count || 0})</option>`).join('');
+          allLists.map(l => `<option value="${l.id}" ${l.id === selectedList ? 'selected' : ''}>${escapeHtml(l.name)} (${l.subscriber_count || 0})</option>`).join('');
+        
+        // Update breadcrumb if filtered
+        if (selectedList) {
+          const list = allLists.find(l => l.id === selectedList);
+          if (list) {
+            selectedListName = list.name;
+            document.getElementById('list-breadcrumb').innerHTML = `
+              <a href="lists.html" class="text-accent">Lists</a> → ${escapeHtml(list.name)}
+            `;
+          }
+        }
       } catch (err) {
         console.error('Failed to load lists:', err);
       }
@@ -93,41 +113,35 @@
             <div class="empty-state">
               <div class="empty-state-icon">👥</div>
               <p>No subscribers ${selectedList ? 'in this list' : 'yet'}</p>
+              ${selectedList ? `<a href="subscribers.html" class="btn btn-secondary mt-4">View All Subscribers</a>` : ''}
             </div>
           `;
           return;
         }
         
         container.innerHTML = `
-          <div style="margin-bottom: var(--space-4); color: var(--text-muted); font-size: var(--text-sm);">
-            Showing ${allSubscribers.length} subscribers
+          <div class="table-header">
+            <div class="text-muted text-sm">
+              Showing ${allSubscribers.length} subscriber${allSubscribers.length !== 1 ? 's' : ''}
+              ${selectedListName ? ` in <strong>${escapeHtml(selectedListName)}</strong>` : ''}
+            </div>
+            <div class="table-actions">
+              <input type="text" id="search-input" class="form-input" placeholder="Search email or name..." oninput="filterTable()" style="width: 250px;">
+            </div>
           </div>
-          <table class="data-table">
+          <table class="data-table" id="subscribers-table">
             <thead>
               <tr>
                 <th>Email</th>
                 <th>Name</th>
-                <th>List</th>
+                ${!selectedList ? '<th>List</th>' : ''}
                 <th>Status</th>
                 <th>Subscribed</th>
                 <th>Source</th>
               </tr>
             </thead>
             <tbody>
-              ${allSubscribers.map(sub => `
-                <tr>
-                  <td><strong>${escapeHtml(sub.email)}</strong></td>
-                  <td>${escapeHtml(sub.name || '-')}</td>
-                  <td class="text-sm">${escapeHtml(sub.list_name || '-')}</td>
-                  <td>
-                    <span class="badge badge-${sub.status === 'active' ? 'success' : 'default'}">
-                      ${sub.status || 'active'}
-                    </span>
-                  </td>
-                  <td class="text-sm text-muted">${formatDate(sub.subscribed_at)}</td>
-                  <td class="text-sm text-muted">${escapeHtml(sub.source || '-')}</td>
-                </tr>
-              `).join('')}
+              ${renderSubscriberRows(allSubscribers)}
             </tbody>
           </table>
         `;
@@ -136,14 +150,62 @@
       }
     }
     
+    function renderSubscriberRows(subscribers) {
+      return subscribers.map(sub => `
+        <tr data-email="${escapeHtml(sub.email?.toLowerCase() || '')}" data-name="${escapeHtml(sub.name?.toLowerCase() || '')}">
+          <td>
+            <strong>${escapeHtml(sub.email)}</strong>
+          </td>
+          <td>${escapeHtml(sub.name || '-')}</td>
+          ${!selectedList ? `
+            <td>
+              <a href="subscribers.html?list=${sub.list_id}" class="text-accent text-sm">
+                ${escapeHtml(sub.list_name || '-')}
+              </a>
+            </td>
+          ` : ''}
+          <td>
+            <span class="badge badge-${sub.status === 'active' ? 'success' : sub.status === 'unsubscribed' ? 'danger' : 'default'}">
+              ${sub.status || 'active'}
+            </span>
+          </td>
+          <td class="text-sm text-muted">${formatDate(sub.subscribed_at)}</td>
+          <td class="text-sm text-muted">${escapeHtml(sub.source || '-')}</td>
+        </tr>
+      `).join('');
+    }
+    
+    function filterTable() {
+      const search = document.getElementById('search-input').value.toLowerCase();
+      const rows = document.querySelectorAll('#subscribers-table tbody tr');
+      
+      rows.forEach(row => {
+        const email = row.dataset.email || '';
+        const name = row.dataset.name || '';
+        const matches = email.includes(search) || name.includes(search);
+        row.style.display = matches ? '' : 'none';
+      });
+    }
+    
     function filterByList(listId) {
-      selectedList = listId;
-      loadSubscribers();
+      if (listId) {
+        window.location.href = `subscribers.html?list=${listId}`;
+      } else {
+        window.location.href = 'subscribers.html';
+      }
     }
     
     function formatDate(dateStr) {
       if (!dateStr) return '-';
-      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffDays = Math.floor((now - date) / 86400000);
+      
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
     
     function escapeHtml(text) {
@@ -155,14 +217,32 @@
   </script>
   
   <style>
-    .form-select {
+    .form-select, .form-input {
       padding: var(--space-2) var(--space-3);
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       color: var(--text-primary);
       font-size: var(--text-sm);
+    }
+    .form-select {
       min-width: 200px;
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+      flex-wrap: wrap;
+      gap: var(--space-3);
+    }
+    .table-actions {
+      display: flex;
+      gap: var(--space-2);
     }
   </style>
 </body>
