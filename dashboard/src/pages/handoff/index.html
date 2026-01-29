@@ -174,11 +174,12 @@
     
     async function loadHandoffData() {
       try {
-        const [queueRes] = await Promise.all([
-          Handoff.queue({ limit: 200 })
-        ]);
+        const queueRes = await Handoff.queue({ limit: 200 });
         
-        const tasks = queueRes.data || [];
+        // API returns { tasks: [...] }
+        const tasks = queueRes.tasks || [];
+        
+        console.log('Loaded handoff tasks:', tasks.length);
         
         // Update stats
         const stats = { pending: 0, claimed: 0, in_progress: 0, complete: 0, blocked: 0 };
@@ -214,7 +215,7 @@
           
       } catch (err) {
         console.error('Failed to load handoff data:', err);
-        document.getElementById('active-projects').innerHTML = '<div class="empty-state text-danger">Failed to load</div>';
+        document.getElementById('active-projects').innerHTML = '<div class="empty-state text-danger">Failed to load: ' + err.message + '</div>';
       }
     }
     
