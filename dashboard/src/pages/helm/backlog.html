@@ -32,6 +32,12 @@
       color: var(--text-secondary);
     }
     
+    .backlog-stat {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
     .backlog-stat strong {
       color: var(--text-primary);
     }
@@ -52,60 +58,21 @@
       font-size: var(--text-sm);
     }
     
-    .search-input {
+    .filter-checkbox {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
       padding: var(--space-2) var(--space-3);
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      color: var(--text-primary);
       font-size: var(--text-sm);
-      min-width: 200px;
-    }
-    
-    .search-input::placeholder {
-      color: var(--text-muted);
-    }
-    
-    .task-list {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      overflow: hidden;
-    }
-    
-    .task-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-4);
-      border-bottom: 1px solid var(--border);
-      transition: background var(--transition-fast);
-    }
-    
-    .task-item:last-child {
-      border-bottom: none;
-    }
-    
-    .task-item:hover {
-      background: var(--bg-hover);
-    }
-    
-    .task-checkbox {
-      width: 20px;
-      height: 20px;
-      border: 2px solid var(--border);
-      border-radius: var(--radius-sm);
-      flex-shrink: 0;
+      color: var(--text-secondary);
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all var(--transition-fast);
     }
     
-    .task-checkbox:hover {
-      border-color: var(--success);
-      background: var(--success-muted);
+    .filter-checkbox input {
+      accent-color: var(--accent);
     }
     
     .priority-dot {
@@ -121,38 +88,17 @@
     .priority-4 { background: var(--info); opacity: 0.6; }
     .priority-5 { background: var(--text-muted); opacity: 0.3; }
     
-    .task-content {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .task-text {
-      font-size: var(--text-base);
-      margin-bottom: var(--space-1);
-    }
-    
-    .task-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-    }
-    
     .task-tag {
-      padding: 2px var(--space-2);
+      padding: 1px var(--space-2);
       border-radius: var(--radius-sm);
       background: var(--bg-hover);
-    }
-    
-    .task-tag.category {
-      background: var(--accent-muted);
-      color: var(--accent);
+      color: var(--text-muted);
+      font-size: var(--text-xs);
     }
     
     .task-tag.project {
-      background: var(--info-muted);
-      color: var(--info);
+      background: var(--accent-muted);
+      color: var(--accent);
     }
     
     .task-tag.due {
@@ -160,7 +106,7 @@
       color: var(--warning);
     }
     
-    .task-tag.overdue {
+    .task-tag.due.overdue {
       background: var(--danger-muted);
       color: var(--danger);
     }
@@ -170,48 +116,138 @@
       color: var(--success);
     }
     
-    .task-actions {
+    /* Category Sections */
+    .category-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      margin-bottom: var(--space-4);
+      overflow: hidden;
+    }
+    
+    .category-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4);
+      background: var(--bg-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .category-header:hover {
+      background: var(--bg-hover);
+    }
+    
+    .category-title {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      font-weight: var(--font-semibold);
+    }
+    
+    .category-count {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      padding: 2px var(--space-2);
+      border-radius: var(--radius-full);
+    }
+    
+    .category-arrow {
+      transition: transform var(--transition-fast);
+    }
+    
+    .category-section.collapsed .category-arrow {
+      transform: rotate(-90deg);
+    }
+    
+    .category-section.collapsed .category-tasks {
+      display: none;
+    }
+    
+    .category-tasks {
+      padding: var(--space-2);
+    }
+    
+    .list-task {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+    }
+    
+    .list-task:hover {
+      background: var(--bg-hover);
+    }
+    
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    
+    .task-checkbox:hover {
+      border-color: var(--success);
+      background: var(--success-muted);
+    }
+    
+    .list-task-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .list-task-text {
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-1);
+    }
+    
+    .list-task-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-1);
+    }
+    
+    .list-task-actions {
       display: flex;
       gap: var(--space-1);
       opacity: 0;
       transition: opacity var(--transition-fast);
     }
     
-    .task-item:hover .task-actions {
+    .list-task:hover .list-task-actions {
       opacity: 1;
     }
     
     .action-btn {
-      padding: var(--space-2);
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
+      padding: var(--space-1) var(--space-2);
+      background: transparent;
+      border: none;
       color: var(--text-muted);
       cursor: pointer;
       border-radius: var(--radius-sm);
       font-size: var(--text-sm);
-      transition: all var(--transition-fast);
     }
     
     .action-btn:hover {
       background: var(--bg-active);
       color: var(--text-primary);
-      border-color: var(--border-light);
     }
     
-    .action-btn.primary:hover {
-      background: var(--accent-muted);
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-    
-    .empty-state {
+    .empty-column {
       text-align: center;
-      padding: var(--space-12);
+      padding: var(--space-6);
       color: var(--text-muted);
-    }
-    
-    .empty-state p {
-      margin-bottom: var(--space-4);
+      font-size: var(--text-sm);
     }
     
     .loading-state {
@@ -219,14 +255,8 @@
       align-items: center;
       justify-content: center;
       gap: var(--space-2);
-      padding: var(--space-12);
+      padding: var(--space-8);
       color: var(--text-muted);
-    }
-    
-    .sort-info {
-      font-size: var(--text-xs);
-      color: var(--text-muted);
-      margin-bottom: var(--space-3);
     }
   </style>
 </head>
@@ -238,11 +268,11 @@
   <script>
     let allTasks = [];
     let filteredTasks = [];
+    let categories = [];
     let filters = {
       priority: '',
-      category: '',
-      project: '',
-      search: ''
+      hasDueDate: false,
+      project: ''
     };
     
     document.addEventListener('DOMContentLoaded', async () => {
@@ -274,13 +304,13 @@
           <div>
             <h2 class="backlog-title">📚 Backlog</h2>
             <div class="backlog-stats">
-              <span><strong id="total-count">0</strong> tasks</span>
+              <div class="backlog-stat"><strong id="total-count">0</strong> tasks</div>
+              <div class="backlog-stat"><strong id="category-count">0</strong> categories</div>
             </div>
           </div>
         </div>
         
         <div class="filter-bar">
-          <input type="text" class="search-input" id="search-input" placeholder="🔍 Search tasks...">
           <select class="filter-select" id="priority-filter">
             <option value="">All Priorities</option>
             <option value="1">🔴 P1 - Urgent</option>
@@ -289,17 +319,16 @@
             <option value="4">🔵 P4 - Low</option>
             <option value="5">⚫ P5 - Someday</option>
           </select>
-          <select class="filter-select" id="category-filter">
-            <option value="">All Categories</option>
-          </select>
           <select class="filter-select" id="project-filter">
             <option value="">All Projects</option>
           </select>
+          <label class="filter-checkbox">
+            <input type="checkbox" id="due-filter">
+            <span>Has due date</span>
+          </label>
         </div>
         
-        <div class="sort-info">Sorted by priority (highest first), then by date created</div>
-        
-        <div class="task-list" id="task-list">
+        <div id="list-container">
           <div class="loading-state">
             <div class="spinner"></div>
             <span>Loading backlog...</span>
@@ -309,18 +338,8 @@
     }
     
     function setupEventListeners() {
-      document.getElementById('search-input').addEventListener('input', (e) => {
-        filters.search = e.target.value.toLowerCase();
-        applyFilters();
-      });
-      
       document.getElementById('priority-filter').addEventListener('change', (e) => {
         filters.priority = e.target.value;
-        applyFilters();
-      });
-      
-      document.getElementById('category-filter').addEventListener('change', (e) => {
-        filters.category = e.target.value;
         applyFilters();
       });
       
@@ -328,34 +347,39 @@
         filters.project = e.target.value;
         applyFilters();
       });
+      
+      document.getElementById('due-filter').addEventListener('change', (e) => {
+        filters.hasDueDate = e.target.checked;
+        applyFilters();
+      });
     }
     
     async function loadTasks() {
       try {
-        // Get all open, non-recurring tasks (backlog = not in sprint, not routines)
         const res = await Tasks.list({ status: 'open', is_recurring: false, limit: 500 });
         allTasks = res.tasks || [];
         
-        // Extract unique categories and projects for filters
-        const categories = [...new Set(allTasks.map(t => t.category).filter(Boolean))].sort();
+        // Extract categories and projects
+        categories = [...new Set(allTasks.map(t => t.category || 'Uncategorized'))].sort((a, b) => {
+          if (a === 'Uncategorized') return 1;
+          if (b === 'Uncategorized') return -1;
+          return a.localeCompare(b);
+        });
+        
         const projects = [...new Set(allTasks.map(t => t.project).filter(Boolean))].sort();
         
-        // Populate filter dropdowns
-        document.getElementById('category-filter').innerHTML = 
-          '<option value="">All Categories</option>' +
-          categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-        
-        document.getElementById('project-filter').innerHTML = 
-          '<option value="">All Projects</option>' +
+        // Populate project filter
+        const projectSelect = document.getElementById('project-filter');
+        projectSelect.innerHTML = '<option value="">All Projects</option>' +
           projects.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
         
         applyFilters();
       } catch (err) {
         console.error('Failed to load tasks:', err);
-        document.getElementById('task-list').innerHTML = `
-          <div class="empty-state">
+        document.getElementById('list-container').innerHTML = `
+          <div class="empty-column">
             <p>❌ Failed to load tasks</p>
-            <button class="btn btn-secondary" onclick="loadTasks()">Retry</button>
+            <button class="btn btn-secondary btn-sm mt-4" onclick="loadTasks()">Retry</button>
           </div>
         `;
       }
@@ -364,59 +388,116 @@
     function applyFilters() {
       filteredTasks = allTasks.filter(task => {
         if (filters.priority && task.priority != filters.priority) return false;
-        if (filters.category && task.category !== filters.category) return false;
+        if (filters.hasDueDate && !task.due_date) return false;
         if (filters.project && task.project !== filters.project) return false;
-        if (filters.search && !task.text.toLowerCase().includes(filters.search)) return false;
         return true;
       });
       
-      // Sort by priority (1 is highest), then by created_at
-      filteredTasks.sort((a, b) => {
-        const pA = a.priority || 3;
-        const pB = b.priority || 3;
-        if (pA !== pB) return pA - pB;
-        return new Date(b.created_at) - new Date(a.created_at);
+      // Recalculate categories based on filtered tasks
+      const filteredCategories = [...new Set(filteredTasks.map(t => t.category || 'Uncategorized'))].sort((a, b) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        return a.localeCompare(b);
       });
       
+      // Update stats
       document.getElementById('total-count').textContent = filteredTasks.length;
-      renderTaskList();
+      document.getElementById('category-count').textContent = filteredCategories.length;
+      
+      renderList(filteredCategories);
     }
     
-    function renderTaskList() {
-      const container = document.getElementById('task-list');
+    function renderList(categoriesToShow) {
+      const container = document.getElementById('list-container');
       
       if (filteredTasks.length === 0) {
         container.innerHTML = `
-          <div class="empty-state">
-            <p>🎉 No tasks in backlog${filters.search || filters.priority || filters.category || filters.project ? ' matching filters' : ''}</p>
+          <div class="empty-column">
+            <p>🎉 No tasks in backlog</p>
           </div>
         `;
         return;
       }
       
-      container.innerHTML = filteredTasks.map(task => {
-        const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+      // Group tasks by category
+      const tasksByCategory = {};
+      categoriesToShow.forEach(cat => tasksByCategory[cat] = []);
+      
+      filteredTasks.forEach(task => {
+        const cat = task.category || 'Uncategorized';
+        if (!tasksByCategory[cat]) tasksByCategory[cat] = [];
+        tasksByCategory[cat].push(task);
+      });
+      
+      // Sort tasks within each category by priority
+      Object.keys(tasksByCategory).forEach(cat => {
+        tasksByCategory[cat].sort((a, b) => (a.priority || 3) - (b.priority || 3));
+      });
+      
+      container.innerHTML = categoriesToShow.map(category => {
+        const tasks = tasksByCategory[category] || [];
+        if (tasks.length === 0) return '';
         
         return `
-          <div class="task-item" data-id="${task.id}">
-            <div class="task-checkbox" onclick="completeTask('${task.id}')" title="Complete"></div>
-            <div class="priority-dot priority-${task.priority || 3}" title="Priority ${task.priority || 3}"></div>
-            <div class="task-content">
-              <div class="task-text">${escapeHtml(task.text)}</div>
-              <div class="task-meta">
-                ${task.category ? `<span class="task-tag category">${escapeHtml(task.category)}</span>` : ''}
-                ${task.project ? `<span class="task-tag project">${escapeHtml(task.project)}</span>` : ''}
-                ${task.due_date ? `<span class="task-tag ${isOverdue ? 'overdue' : 'due'}">${formatDue(task.due_date)}</span>` : ''}
-                ${task.is_active ? `<span class="task-tag active">Active</span>` : ''}
+          <div class="category-section" data-category="${escapeHtml(category)}">
+            <div class="category-header" onclick="toggleCategory(this)">
+              <div class="category-title">
+                <span class="category-arrow">▼</span>
+                ${getCategoryIcon(category)} ${escapeHtml(category)}
+                <span class="category-count">${tasks.length}</span>
               </div>
             </div>
-            <div class="task-actions">
-              ${!task.is_active ? `<button class="action-btn primary" onclick="activateTask('${task.id}')" title="Add to Active">⚡ Active</button>` : ''}
-              <button class="action-btn" onclick="deleteTask('${task.id}')" title="Delete">🗑️</button>
+            <div class="category-tasks">
+              ${tasks.map(task => renderListTask(task)).join('')}
             </div>
           </div>
         `;
       }).join('');
+    }
+    
+    function renderListTask(task) {
+      const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+      
+      return `
+        <div class="list-task" data-id="${task.id}">
+          <div class="task-checkbox" onclick="event.stopPropagation(); completeTask('${task.id}')" title="Complete"></div>
+          <div class="priority-dot priority-${task.priority || 3}"></div>
+          <div class="list-task-content">
+            <div class="list-task-text">${escapeHtml(task.text)}</div>
+            <div class="list-task-meta">
+              ${task.project ? `<span class="task-tag project">${escapeHtml(task.project)}</span>` : ''}
+              ${task.due_date ? `<span class="task-tag due ${isOverdue ? 'overdue' : ''}">${formatDue(task.due_date)}</span>` : ''}
+              ${task.is_active ? `<span class="task-tag active">Active</span>` : ''}
+            </div>
+          </div>
+          <div class="list-task-actions">
+            <button class="action-btn" onclick="event.stopPropagation(); activateTask('${task.id}')" title="Add to Active">⚡</button>
+            <button class="action-btn" onclick="event.stopPropagation(); deleteTask('${task.id}')" title="Delete">🗑️</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function toggleCategory(header) {
+      header.parentElement.classList.toggle('collapsed');
+    }
+    
+    function getCategoryIcon(category) {
+      const icons = {
+        'Work': '💼',
+        'Personal': '🏠',
+        'Health': '💪',
+        'Finance': '💰',
+        'Learning': '📚',
+        'Projects': '🚀',
+        'Errands': '🏃',
+        'Waiting': '⏳',
+        'Blog System': '📝',
+        'Development': '💻',
+        'Freelance': '🎯',
+        'Uncategorized': '📋'
+      };
+      return icons[category] || '📁';
     }
     
     function formatDue(dateStr) {
