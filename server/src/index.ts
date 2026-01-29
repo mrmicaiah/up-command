@@ -143,6 +143,7 @@ async function listTasks(env: Env, userId: string, url: URL) {
   const status = url.searchParams.get('status') || 'open';
   const category = url.searchParams.get('category');
   const project = url.searchParams.get('project');
+  const isActive = url.searchParams.get('is_active');
   const limit = parseInt(url.searchParams.get('limit') || '50');
 
   let sql = `SELECT * FROM tasks WHERE user_id = ?`;
@@ -151,6 +152,8 @@ async function listTasks(env: Env, userId: string, url: URL) {
   if (status !== 'all') { sql += ` AND status = ?`; params.push(status); }
   if (category) { sql += ` AND category = ?`; params.push(category); }
   if (project) { sql += ` AND project = ?`; params.push(project); }
+  if (isActive === 'true') { sql += ` AND is_active = 1`; }
+  if (isActive === 'false') { sql += ` AND is_active = 0`; }
 
   sql += ` ORDER BY is_active DESC, priority ASC, created_at DESC LIMIT ?`;
   params.push(limit);
