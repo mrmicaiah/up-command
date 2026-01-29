@@ -118,7 +118,7 @@
                 <th>From</th>
                 <th>Status</th>
                 <th>Created</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -127,8 +127,13 @@
                   <td>
                     <div class="list-name">${escapeHtml(list.name)}</div>
                     ${list.description ? `<div class="list-meta">${escapeHtml(list.description)}</div>` : ''}
+                    <div class="list-meta text-muted">ID: ${list.id}</div>
                   </td>
-                  <td><strong>${list.subscriber_count || 0}</strong></td>
+                  <td>
+                    <a href="subscribers.html?list=${list.id}" class="text-accent" style="font-weight: 600;">
+                      ${list.subscriber_count || 0} →
+                    </a>
+                  </td>
                   <td>
                     <div class="text-sm">${escapeHtml(list.from_name || '-')}</div>
                     <div class="text-xs text-muted">${escapeHtml(list.from_email || '')}</div>
@@ -139,7 +144,12 @@
                   </td>
                   <td class="text-sm text-muted">${formatDate(list.created_at)}</td>
                   <td>
-                    <button class="btn btn-ghost btn-sm" onclick="viewList('${list.id}')">View</button>
+                    <div class="action-buttons">
+                      <a href="subscribers.html?list=${list.id}" class="btn btn-ghost btn-sm" title="View Subscribers">👥</a>
+                      <a href="campaigns.html?list=${list.id}" class="btn btn-ghost btn-sm" title="View Campaigns">📨</a>
+                      <a href="sequences.html?list=${list.id}" class="btn btn-ghost btn-sm" title="View Sequences">🔄</a>
+                      <button class="btn btn-ghost btn-sm" onclick="copySlug('${list.slug || list.id}')" title="Copy Slug">📋</button>
+                    </div>
                   </td>
                 </tr>
               `).join('')}
@@ -153,6 +163,7 @@
     
     function showNewListModal() {
       document.getElementById('new-list-modal').style.display = 'flex';
+      document.getElementById('list-name').focus();
     }
     
     function hideModal(id) {
@@ -173,15 +184,23 @@
       try {
         await CourierAPI.createList({ name, from_name: fromName, from_email: fromEmail, description });
         hideModal('new-list-modal');
+        document.getElementById('list-name').value = '';
+        document.getElementById('list-from-name').value = '';
+        document.getElementById('list-from-email').value = '';
+        document.getElementById('list-description').value = '';
         await loadData();
       } catch (err) {
         alert('Failed to create list: ' + err.message);
       }
     }
     
-    function viewList(id) {
-      // TODO: Implement list detail view
-      alert('List detail view coming soon');
+    function copySlug(slug) {
+      navigator.clipboard.writeText(slug);
+      // Brief visual feedback
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(() => btn.textContent = originalText, 1000);
     }
     
     function formatDate(dateStr) {
@@ -259,6 +278,10 @@
     .form-input:focus {
       outline: none;
       border-color: var(--accent);
+    }
+    .action-buttons {
+      display: flex;
+      gap: var(--space-1);
     }
   </style>
 </body>
