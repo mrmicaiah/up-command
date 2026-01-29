@@ -20,6 +20,7 @@ export const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1';
 export const BLOGGER_API_URL = 'https://www.googleapis.com/blogger/v3';
 export const PEOPLE_API_URL = 'https://people.googleapis.com/v1';
 export const ANALYTICS_DATA_API_URL = 'https://analyticsdata.googleapis.com/v1beta';
+export const ANALYTICS_ADMIN_API_URL = 'https://analyticsadmin.googleapis.com/v1beta';
 
 // GitHub API URL
 export const GITHUB_API_URL = 'https://api.github.com';
@@ -65,6 +66,7 @@ export const GOOGLE_SCOPES: Record<GoogleService, string[]> = {
   ],
   google_analytics: [
     'https://www.googleapis.com/auth/analytics.readonly',
+    'https://www.googleapis.com/auth/analytics.edit',  // Required for Admin API (list accounts/properties)
   ],
 };
 
@@ -202,102 +204,4 @@ export function buildGitHubAuthUrl(
 export function buildOAuthUrl(
   env: Env,
   userId: string,
-  service: OAuthProvider,
-  workerUrl: string
-): string {
-  if (service === 'github') {
-    return buildGitHubAuthUrl(env, userId, workerUrl);
-  }
-  return buildGoogleAuthUrl(env, userId, service as GoogleService, workerUrl);
-}
-
-/**
- * Check if a service is connected
- */
-export async function isServiceConnected(
-  env: Env,
-  userId: string,
-  provider: OAuthProvider
-): Promise<boolean> {
-  const result = await env.DB.prepare(
-    'SELECT 1 FROM oauth_tokens WHERE user_id = ? AND provider = ?'
-  ).bind(userId, provider).first();
-  return !!result;
-}
-
-/**
- * Disconnect a service
- */
-export async function disconnectService(
-  env: Env,
-  userId: string,
-  provider: OAuthProvider
-): Promise<void> {
-  await env.DB.prepare(
-    'DELETE FROM oauth_tokens WHERE user_id = ? AND provider = ?'
-  ).bind(userId, provider).run();
-}
-
-/**
- * Get all connected services for a user
- */
-export async function getConnectedServices(
-  env: Env,
-  userId: string
-): Promise<OAuthProvider[]> {
-  const result = await env.DB.prepare(
-    'SELECT provider FROM oauth_tokens WHERE user_id = ?'
-  ).bind(userId).all();
-  return (result.results || []).map((r: any) => r.provider as OAuthProvider);
-}
-
-/**
- * Find or create a folder path in Google Drive
- */
-export async function findOrCreateFolderPath(
-  token: string,
-  folderPath: string
-): Promise<{ id: string; name: string } | null> {
-  const parts = folderPath.split('/').filter(p => p.trim());
-  let parentId = 'root';
-  let currentFolder = { id: 'root', name: 'My Drive' };
-
-  for (const folderName of parts) {
-    // Search for existing folder
-    const query = `'${parentId}' in parents and name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-    const searchResp = await fetch(
-      `${DRIVE_API_URL}/files?q=${encodeURIComponent(query)}&fields=files(id,name)`,
-      { headers: { Authorization: 'Bearer ' + token } }
-    );
-
-    if (!searchResp.ok) return null;
-
-    const data: any = await searchResp.json();
-
-    if (data.files && data.files.length > 0) {
-      currentFolder = data.files[0];
-      parentId = currentFolder.id;
-    } else {
-      // Create the folder
-      const createResp = await fetch(`${DRIVE_API_URL}/files`, {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer ' + token,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: folderName,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentId],
-        }),
-      });
-
-      if (!createResp.ok) return null;
-
-      currentFolder = await createResp.json();
-      parentId = currentFolder.id;
-    }
-  }
-
-  return currentFolder;
-}
+  service: OAuthProvider
