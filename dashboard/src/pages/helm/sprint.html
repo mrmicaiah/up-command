@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sprint - Helm - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="helm.css">
+  <style>
+    .sprint-header-card {
+      background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-8);
+      margin-bottom: var(--space-6);
+    }
+    
+    .sprint-header-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+    }
+    
+    .sprint-name {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+      margin-bottom: var(--space-2);
+    }
+    
+    .sprint-dates {
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+    }
+    
+    .sprint-countdown {
+      text-align: right;
+    }
+    
+    .countdown-number {
+      font-family: var(--font-display);
+      font-size: var(--text-4xl);
+      font-weight: var(--font-bold);
+      color: var(--accent);
+    }
+    
+    .countdown-label {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+    
+    .sprint-progress-section {
+      margin-bottom: var(--space-4);
+    }
+    
+    .sprint-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-2);
+    }
+    
+    .sprint-progress-bar {
+      height: 12px;
+      background: var(--bg-hover);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+    
+    .sprint-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      border-radius: var(--radius-full);
+      transition: width 0.5s ease;
+    }
+    
+    .sprint-stats-row {
+      display: flex;
+      gap: var(--space-6);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border);
+    }
+    
+    .sprint-stat {
+      text-align: center;
+    }
+    
+    .sprint-stat-value {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .sprint-stat-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .objectives-section {
+      margin-bottom: var(--space-6);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+    
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .objectives-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: var(--space-4);
+    }
+    
+    .objective-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+    }
+    
+    .objective-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+    
+    .objective-title {
+      font-weight: var(--font-semibold);
+      font-size: var(--text-base);
+    }
+    
+    .objective-progress {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      padding: var(--space-1) var(--space-2);
+      border-radius: var(--radius-sm);
+    }
+    
+    .objective-progress-bar {
+      height: 4px;
+      background: var(--bg-hover);
+      border-radius: var(--radius-full);
+      margin-bottom: var(--space-3);
+      overflow: hidden;
+    }
+    
+    .objective-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: var(--radius-full);
+    }
+    
+    .objective-tasks {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    
+    .objective-task {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      transition: background var(--transition-fast);
+    }
+    
+    .objective-task:hover {
+      background: var(--bg-hover);
+    }
+    
+    .objective-task.completed {
+      color: var(--text-muted);
+      text-decoration: line-through;
+    }
+    
+    .task-check {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      flex-shrink: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition-fast);
+    }
+    
+    .task-check:hover {
+      border-color: var(--accent);
+    }
+    
+    .task-check.done {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    
+    .task-check.done::after {
+      content: '✓';
+      color: white;
+      font-size: 10px;
+    }
+    
+    .add-task-row {
+      display: flex;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+      padding-top: var(--space-2);
+      border-top: 1px solid var(--border);
+    }
+    
+    .add-task-select {
+      flex: 1;
+      padding: var(--space-1) var(--space-2);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: var(--text-xs);
+    }
+    
+    .unassigned-section {
+      margin-bottom: var(--space-6);
+    }
+    
+    .unassigned-tasks {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+    }
+    
+    .unassigned-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    
+    .history-section {
+      margin-top: var(--space-8);
+    }
+    
+    .history-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      padding: var(--space-2) 0;
+    }
+    
+    .history-toggle:hover {
+      color: var(--text-primary);
+    }
+    
+    .history-content {
+      display: none;
+      margin-top: var(--space-4);
+    }
+    
+    .history-content.visible {
+      display: block;
+    }
+    
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-2);
+    }
+    
+    .history-name {
+      font-weight: var(--font-medium);
+    }
+    
+    .history-meta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .history-stats {
+      display: flex;
+      gap: var(--space-4);
+      font-size: var(--text-sm);
+    }
+    
+    .no-sprint {
+      text-align: center;
+      padding: var(--space-12);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+    }
+    
+    .no-sprint-icon {
+      font-size: 4rem;
+      margin-bottom: var(--space-4);
+    }
+    
+    .no-sprint-title {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: var(--font-semibold);
+      margin-bottom: var(--space-2);
+    }
+    
+    .no-sprint-text {
+      color: var(--text-secondary);
+      margin-bottom: var(--space-6);
+    }
+    
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-4);
+    }
+    
+    .modal-backdrop.visible {
+      display: flex;
+    }
+    
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: var(--text-xl);
+    }
+    
+    .modal-body {
+      padding: var(--space-6);
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border);
+    }
+    
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+    
+    .form-label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      margin-bottom: var(--space-2);
+      color: var(--text-secondary);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: var(--space-3);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-base);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-8);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    let currentSprint = null;
+    let objectives = [];
+    let sprintTasks = [];
+    let allTasks = [];
+    let pastSprints = [];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('helm', { showThread: false });
+      main.innerHTML = `
+        <header class="helm-header">
+          <h1 class="helm-title">⚓ Helm</h1>
+          <p class="helm-subtitle">Task management & sprint planning</p>
+          <nav class="helm-nav">
+            <a href="index.html" class="helm-nav-item">Overview</a>
+            <a href="tasks.html" class="helm-nav-item">Tasks</a>
+            <a href="sprint.html" class="helm-nav-item active">Sprint</a>
+            <a href="backlog.html" class="helm-nav-item">Backlog</a>
+            <a href="routines.html" class="helm-nav-item">Routines</a>
+          </nav>
+        </header>
+        <div id="sprint-content">
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <span>Loading sprint...</span>
+          </div>
+        </div>
+      `;
+      
+      await loadSprintData();
+    });
+    
+    async function loadSprintData() {
+      try {
+        const [sprintRes, tasksRes, sprintsRes] = await Promise.all([
+          Sprints.current(),
+          Tasks.list({ status: 'open', limit: 200 }),
+          Sprints.list()
+        ]);
+        
+        currentSprint = sprintRes?.sprint || null;
+        objectives = sprintRes?.objectives || [];
+        sprintTasks = sprintRes?.tasks || [];
+        allTasks = tasksRes?.tasks || [];
+        pastSprints = (sprintsRes?.sprints || []).filter(s => s.status !== 'active');
+        
+        renderSprint();
+      } catch (err) {
+        console.error('Failed to load sprint:', err);
+        document.getElementById('sprint-content').innerHTML = `
+          <div class="no-sprint">
+            <div class="no-sprint-icon">❌</div>
+            <h2 class="no-sprint-title">Failed to Load</h2>
+            <p class="no-sprint-text">Could not load sprint data.</p>
+            <button class="btn btn-secondary" onclick="loadSprintData()">Retry</button>
+          </div>
+        `;
+      }
+    }
+    
+    function renderSprint() {
+      const container = document.getElementById('sprint-content');
+      
+      if (!currentSprint) {
+        container.innerHTML = `
+          <div class="no-sprint">
+            <div class="no-sprint-icon">🏃</div>
+            <h2 class="no-sprint-title">No Active Sprint</h2>
+            <p class="no-sprint-text">Create a sprint to focus your work and track progress toward your goals.</p>
+            <button class="btn btn-primary btn-lg" onclick="showCreateSprintModal()">🚀 Start New Sprint</button>
+          </div>
+          ${renderHistory()}
+          ${renderCreateSprintModal()}
+        `;
+        return;
+      }
+      
+      const daysLeft = Math.ceil((new Date(currentSprint.end_date) - new Date()) / 86400000);
+      const totalTasks = sprintTasks.length;
+      const completedTasks = sprintTasks.filter(t => t.status === 'done').length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      
+      // Group tasks by objective
+      const tasksByObjective = {};
+      objectives.forEach(o => tasksByObjective[o.id] = []);
+      const unassignedTasks = [];
+      
+      sprintTasks.forEach(task => {
+        if (task.objective_id && tasksByObjective[task.objective_id]) {
+          tasksByObjective[task.objective_id].push(task);
+        } else {
+          unassignedTasks.push(task);
+        }
+      });
+      
+      container.innerHTML = `
+        <!-- Sprint Header -->
+        <div class="sprint-header-card">
+          <div class="sprint-header-top">
+            <div>
+              <h2 class="sprint-name">🏃 ${escapeHtml(currentSprint.name)}</h2>
+              <p class="sprint-dates">
+                ${formatDate(currentSprint.start_date)} → ${formatDate(currentSprint.end_date)}
+              </p>
+            </div>
+            <div class="sprint-countdown">
+              <div class="countdown-number">${Math.max(0, daysLeft)}</div>
+              <div class="countdown-label">days left</div>
+            </div>
+          </div>
+          
+          <div class="sprint-progress-section">
+            <div class="sprint-progress-label">
+              <span>Progress</span>
+              <span>${completedTasks} / ${totalTasks} tasks (${progress}%)</span>
+            </div>
+            <div class="sprint-progress-bar">
+              <div class="sprint-progress-fill" style="width: ${progress}%"></div>
+            </div>
+          </div>
+          
+          <div class="sprint-stats-row">
+            <div class="sprint-stat">
+              <div class="sprint-stat-value text-success">${completedTasks}</div>
+              <div class="sprint-stat-label">Completed</div>
+            </div>
+            <div class="sprint-stat">
+              <div class="sprint-stat-value">${totalTasks - completedTasks}</div>
+              <div class="sprint-stat-label">Remaining</div>
+            </div>
+            <div class="sprint-stat">
+              <div class="sprint-stat-value text-accent">${objectives.length}</div>
+              <div class="sprint-stat-label">Objectives</div>
+            </div>
+            <div class="sprint-stat">
+              <div class="sprint-stat-value ${daysLeft <= 2 ? 'text-danger' : ''}">${daysLeft}d</div>
+              <div class="sprint-stat-label">Remaining</div>
+            </div>
+            <div style="margin-left: auto;">
+              <button class="btn btn-danger btn-sm" onclick="showEndSprintModal()">End Sprint</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Objectives -->
+        <div class="objectives-section">
+          <div class="section-header">
+            <h3 class="section-title">🎯 Objectives</h3>
+            <button class="btn btn-secondary btn-sm" onclick="showAddObjectiveModal()">+ Add Objective</button>
+          </div>
+          
+          ${objectives.length > 0 ? `
+            <div class="objectives-grid">
+              ${objectives.map(obj => {
+                const objTasks = tasksByObjective[obj.id] || [];
+                const done = objTasks.filter(t => t.status === 'done').length;
+                const objProgress = objTasks.length > 0 ? Math.round((done / objTasks.length) * 100) : 0;
+                
+                return `
+                  <div class="objective-card">
+                    <div class="objective-header">
+                      <div class="objective-title">${escapeHtml(obj.statement)}</div>
+                      <div class="objective-progress">${done}/${objTasks.length}</div>
+                    </div>
+                    <div class="objective-progress-bar">
+                      <div class="objective-progress-fill" style="width: ${objProgress}%"></div>
+                    </div>
+                    <div class="objective-tasks">
+                      ${objTasks.map(task => `
+                        <div class="objective-task ${task.status === 'done' ? 'completed' : ''}">
+                          <div class="task-check ${task.status === 'done' ? 'done' : ''}" 
+                               onclick="toggleTask('${task.id}')"></div>
+                          <span>${escapeHtml(task.text)}</span>
+                        </div>
+                      `).join('')}
+                      ${objTasks.length === 0 ? '<p class="text-muted text-sm">No tasks yet</p>' : ''}
+                    </div>
+                    <div class="add-task-row">
+                      <select class="add-task-select" id="add-task-${obj.id}">
+                        <option value="">Add task to objective...</option>
+                        ${getAvailableTasks().map(t => `
+                          <option value="${t.id}">${escapeHtml(t.text.slice(0, 50))}${t.text.length > 50 ? '...' : ''}</option>
+                        `).join('')}
+                      </select>
+                      <button class="btn btn-sm btn-ghost" onclick="addTaskToObjective('${obj.id}')">+</button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : `
+            <div class="no-sprint" style="padding: var(--space-8);">
+              <p class="text-muted">No objectives yet. Add objectives to organize your sprint.</p>
+              <button class="btn btn-secondary btn-sm mt-4" onclick="showAddObjectiveModal()">Add First Objective</button>
+            </div>
+          `}
+        </div>
+        
+        <!-- Unassigned Tasks -->
+        ${unassignedTasks.length > 0 ? `
+          <div class="unassigned-section">
+            <div class="section-header">
+              <h3 class="section-title">📋 Sprint Tasks (Unassigned)</h3>
+            </div>
+            <div class="unassigned-tasks">
+              <div class="unassigned-list">
+                ${unassignedTasks.map(task => `
+                  <div class="objective-task ${task.status === 'done' ? 'completed' : ''}">
+                    <div class="task-check ${task.status === 'done' ? 'done' : ''}" 
+                         onclick="toggleTask('${task.id}')"></div>
+                    <span>${escapeHtml(task.text)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Add Tasks to Sprint -->
+        <div class="section-header">
+          <h3 class="section-title">➕ Add Tasks to Sprint</h3>
+        </div>
+        <div class="unassigned-tasks" style="margin-bottom: var(--space-6);">
+          <div style="display: flex; gap: var(--space-2); flex-wrap: wrap;">
+            ${getAvailableTasks().slice(0, 10).map(task => `
+              <button class="btn btn-sm btn-secondary" onclick="pullTaskToSprint('${task.id}')" title="${escapeHtml(task.text)}">
+                ${escapeHtml(task.text.slice(0, 30))}${task.text.length > 30 ? '...' : ''}
+              </button>
+            `).join('')}
+            ${getAvailableTasks().length === 0 ? '<p class="text-muted">All open tasks are in the sprint</p>' : ''}
+            ${getAvailableTasks().length > 10 ? `<span class="text-muted text-sm">+${getAvailableTasks().length - 10} more</span>` : ''}
+          </div>
+        </div>
+        
+        ${renderHistory()}
+        ${renderCreateSprintModal()}
+        ${renderAddObjectiveModal()}
+        ${renderEndSprintModal()}
+      `;
+    }
+    
+    function getAvailableTasks() {
+      const sprintTaskIds = new Set(sprintTasks.map(t => t.id));
+      return allTasks.filter(t => !sprintTaskIds.has(t.id));
+    }
+    
+    function renderHistory() {
+      if (pastSprints.length === 0) return '';
+      
+      return `
+        <div class="history-section">
+          <button class="history-toggle" onclick="toggleHistory()">
+            <span id="history-arrow">▶</span>
+            <span>Sprint History (${pastSprints.length})</span>
+          </button>
+          <div class="history-content" id="history-content">
+            ${pastSprints.map(sprint => `
+              <div class="history-item">
+                <div>
+                  <div class="history-name">${escapeHtml(sprint.name)}</div>
+                  <div class="history-meta">${formatDate(sprint.start_date)} → ${formatDate(sprint.end_date)}</div>
+                </div>
+                <div class="history-stats">
+                  <span class="badge badge-${sprint.status === 'completed' ? 'success' : 'warning'}">${sprint.status}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    function toggleHistory() {
+      const content = document.getElementById('history-content');
+      const arrow = document.getElementById('history-arrow');
+      content.classList.toggle('visible');
+      arrow.textContent = content.classList.contains('visible') ? '▼' : '▶';
+    }
+    
+    function renderCreateSprintModal() {
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      const defaultEnd = nextWeek.toISOString().split('T')[0];
+      
+      return `
+        <div class="modal-backdrop" id="create-sprint-modal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="modal-title">🚀 Create Sprint</h3>
+              <button class="modal-close" onclick="hideModal('create-sprint-modal')">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Sprint Name</label>
+                <input type="text" class="form-input" id="sprint-name" placeholder="e.g., Week 5 Sprint, January Push">
+              </div>
+              <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input type="date" class="form-input" id="sprint-end-date" value="${defaultEnd}">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideModal('create-sprint-modal')">Cancel</button>
+              <button class="btn btn-primary" onclick="createSprint()">Create Sprint</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderAddObjectiveModal() {
+      return `
+        <div class="modal-backdrop" id="add-objective-modal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="modal-title">🎯 Add Objective</h3>
+              <button class="modal-close" onclick="hideModal('add-objective-modal')">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Objective Statement</label>
+                <input type="text" class="form-input" id="objective-statement" placeholder="e.g., Launch new feature, Complete documentation">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideModal('add-objective-modal')">Cancel</button>
+              <button class="btn btn-primary" onclick="addObjective()">Add Objective</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderEndSprintModal() {
+      return `
+        <div class="modal-backdrop" id="end-sprint-modal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="modal-title">🏁 End Sprint</h3>
+              <button class="modal-close" onclick="hideModal('end-sprint-modal')">×</button>
+            </div>
+            <div class="modal-body">
+              <p class="mb-4">Are you sure you want to end this sprint?</p>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="end-sprint-status">
+                  <option value="completed">✅ Completed</option>
+                  <option value="abandoned">❌ Abandoned</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideModal('end-sprint-modal')">Cancel</button>
+              <button class="btn btn-danger" onclick="endSprint()">End Sprint</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function showCreateSprintModal() {
+      document.getElementById('create-sprint-modal').classList.add('visible');
+      document.getElementById('sprint-name').focus();
+    }
+    
+    function showAddObjectiveModal() {
+      document.getElementById('add-objective-modal').classList.add('visible');
+      document.getElementById('objective-statement').focus();
+    }
+    
+    function showEndSprintModal() {
+      document.getElementById('end-sprint-modal').classList.add('visible');
+    }
+    
+    function hideModal(id) {
+      document.getElementById(id).classList.remove('visible');
+    }
+    
+    async function createSprint() {
+      const name = document.getElementById('sprint-name').value.trim();
+      const endDate = document.getElementById('sprint-end-date').value;
+      
+      if (!name) {
+        alert('Please enter a sprint name');
+        return;
+      }
+      
+      if (!endDate) {
+        alert('Please select an end date');
+        return;
+      }
+      
+      try {
+        await Sprints.create({ name, end_date: endDate });
+        hideModal('create-sprint-modal');
+        await loadSprintData();
+      } catch (err) {
+        alert('Failed to create sprint');
+      }
+    }
+    
+    async function addObjective() {
+      const statement = document.getElementById('objective-statement').value.trim();
+      
+      if (!statement) {
+        alert('Please enter an objective');
+        return;
+      }
+      
+      try {
+        // TODO: Implement add objective API
+        // await Sprints.addObjective(currentSprint.id, { statement });
+        alert('Add objective API not yet implemented');
+        hideModal('add-objective-modal');
+      } catch (err) {
+        alert('Failed to add objective');
+      }
+    }
+    
+    async function endSprint() {
+      const status = document.getElementById('end-sprint-status').value;
+      
+      try {
+        await Sprints.update(currentSprint.id, { status });
+        hideModal('end-sprint-modal');
+        await loadSprintData();
+      } catch (err) {
+        alert('Failed to end sprint');
+      }
+    }
+    
+    async function toggleTask(taskId) {
+      try {
+        await Tasks.complete(taskId);
+        await loadSprintData();
+      } catch (err) {
+        alert('Failed to update task');
+      }
+    }
+    
+    async function pullTaskToSprint(taskId) {
+      try {
+        // TODO: Implement pull to sprint API
+        // await Sprints.addTask(currentSprint.id, taskId);
+        alert('Pull to sprint API not yet implemented');
+      } catch (err) {
+        alert('Failed to add task to sprint');
+      }
+    }
+    
+    async function addTaskToObjective(objectiveId) {
+      const select = document.getElementById(`add-task-${objectiveId}`);
+      const taskId = select.value;
+      
+      if (!taskId) return;
+      
+      try {
+        // TODO: Implement add task to objective API
+        // await Sprints.addTaskToObjective(currentSprint.id, objectiveId, taskId);
+        alert('Add task to objective API not yet implemented');
+        select.value = '';
+      } catch (err) {
+        alert('Failed to add task to objective');
+      }
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
