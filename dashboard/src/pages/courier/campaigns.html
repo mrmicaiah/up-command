@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campaigns - Courier - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="courier.css">
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  <script src="courier-api.js"></script>
+  
+  <script>
+    let allCampaigns = [];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('courier', { showThread: false });
+      main.innerHTML = renderPage();
+      
+      if (!getCourierToken()) {
+        showCourierLogin(loadData);
+      } else {
+        await loadData();
+      }
+    });
+    
+    function renderPage() {
+      return `
+        <header class="courier-header">
+          <h1 class="courier-title">📧 Courier</h1>
+          <p class="courier-subtitle">Email marketing and automation</p>
+          <nav class="courier-nav">
+            <a href="index.html" class="courier-nav-item">Overview</a>
+            <a href="lists.html" class="courier-nav-item">Lists</a>
+            <a href="campaigns.html" class="courier-nav-item active">Campaigns</a>
+            <a href="sequences.html" class="courier-nav-item">Sequences</a>
+            <a href="subscribers.html" class="courier-nav-item">Subscribers</a>
+          </nav>
+        </header>
+        
+        <div class="section-header" style="margin-bottom: var(--space-6);">
+          <h2 class="section-title">📨 Campaigns</h2>
+          <button class="btn btn-primary" onclick="showNewCampaignModal()">+ New Campaign</button>
+        </div>
+        
+        <div class="section-card">
+          <div id="campaigns-container">
+            <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading campaigns...</span></div>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function loadData() {
+      const container = document.getElementById('campaigns-container');
+      try {
+        const result = await CourierAPI.campaigns();
+        allCampaigns = result.emails || [];
+        
+        if (allCampaigns.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📨</div>
+              <p>No campaigns yet</p>
+              <button class="btn btn-primary" onclick="showNewCampaignModal()">Create your first campaign</button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Status</th>
+                <th>List</th>
+                <th>Sent</th>
+                <th>Opens</th>
+                <th>Clicks</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allCampaigns.map(c => `
+                <tr>
+                  <td>
+                    <div class="campaign-title">${escapeHtml(c.subject || c.title || 'Untitled')}</div>
+                  </td>
+                  <td>
+                    <span class="badge badge-${c.status === 'sent' ? 'success' : c.status === 'scheduled' ? 'info' : 'default'}">
+                      ${c.status || 'draft'}
+                    </span>
+                  </td>
+                  <td class="text-sm">${escapeHtml(c.list_name || '-')}</td>
+                  <td><strong>${c.sent_count || 0}</strong></td>
+                  <td>
+                    ${c.open_count || 0}
+                    ${c.sent_count ? `<span class="text-muted">(${Math.round((c.open_count || 0) / c.sent_count * 100)}%)</span>` : ''}
+                  </td>
+                  <td>
+                    ${c.click_count || 0}
+                    ${c.sent_count ? `<span class="text-muted">(${Math.round((c.click_count || 0) / c.sent_count * 100)}%)</span>` : ''}
+                  </td>
+                  <td class="text-sm text-muted">${formatDate(c.sent_at || c.created_at)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p class="text-danger p-4">Failed to load campaigns: ${err.message}</p>`;
+      }
+    }
+    
+    function showNewCampaignModal() {
+      alert('Campaign editor coming soon - use MCP tools for now');
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
