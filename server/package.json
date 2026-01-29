@@ -1,0 +1,20 @@
+{
+  "name": "up-command-server",
+  "version": "1.0.0",
+  "description": "UP Command MCP Server",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:irene": "wrangler deploy --config wrangler-irene.jsonc",
+    "deploy:all": "npm run deploy && npm run deploy:irene"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240512.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.57.0"
+  }
+}
