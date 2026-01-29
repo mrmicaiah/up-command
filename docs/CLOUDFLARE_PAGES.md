@@ -1,100 +1,93 @@
 # Cloudflare Pages Deployment Guide
 
-## Setup Steps
+## Live URLs
 
-### 1. Connect Repository to Cloudflare Pages
+- **Production:** https://command.untitledpublishers.com
+- **Cloudflare Pages:** https://up-command-dashboard.pages.dev (or similar)
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → Pages
-2. Click "Create a project" → "Connect to Git"
-3. Select the `up-command` repository
-4. Configure build settings:
-   - **Production branch:** `main`
-   - **Build command:** (leave empty - static files)
-   - **Build output directory:** `dashboard/src`
-   - **Root directory:** `/` (or leave default)
+## Setup (Already Complete)
 
-### 2. Deploy Settings
+The dashboard is deployed via **Cloudflare Pages** (not Workers).
 
-No build command is needed since this is a static site with vanilla JS.
+### Configuration Used
 
-### 3. Custom Domain Setup
+| Setting | Value |
+|---------|-------|
+| **Project type** | Pages (NOT Workers) |
+| **Git repository** | mrmicaiah/up-command |
+| **Production branch** | main |
+| **Framework preset** | None |
+| **Root directory** | `dashboard` |
+| **Build command** | *(empty)* |
+| **Build output directory** | `src` |
 
-After initial deployment:
-1. Go to the project's Custom Domains tab
-2. Add: `command.untitledpublishers.com`
-3. Cloudflare will auto-configure DNS if domain is on Cloudflare
+### Custom Domain
 
-### 4. Environment Variables
-
-No environment variables needed - all config is in the JS files.
+- `command.untitledpublishers.com` → Configured in Pages project settings
 
 ## Project Structure
 
 ```
-dashboard/src/
-├── index.html          # Root redirect → /pages/home/
-├── shared/
-│   ├── styles.css      # Design system
-│   ├── api.js          # API client
-│   ├── auth.js         # PIN authentication
-│   ├── nav.js          # Sidebar navigation
-│   └── thread.js       # Mini thread component
-└── pages/
-    ├── home/           # Dashboard overview
-    ├── helm/           # Task management
-    ├── thread/         # Activity feed
-    ├── handoff/        # Task queue
-    ├── courier/        # Email marketing
-    ├── analytics/      # GA4 stats
-    ├── integrations/   # Service connections
-    └── settings/       # User preferences
+dashboard/
+├── package.json        # Prevents wrangler detection
+└── src/
+    ├── index.html      # Root redirect → /pages/home/
+    ├── shared/
+    │   ├── styles.css  # Design system
+    │   ├── api.js      # API client
+    │   ├── auth.js     # PIN authentication
+    │   ├── nav.js      # Sidebar navigation
+    │   └── thread.js   # Mini thread component
+    └── pages/
+        ├── home/       # Dashboard overview
+        ├── helm/       # Task management
+        ├── thread/     # Activity feed
+        ├── handoff/    # Task queue
+        ├── courier/    # Email marketing
+        ├── analytics/  # GA4 stats
+        ├── integrations/
+        └── settings/
 ```
 
 ## URL Structure
 
-After deployment, pages will be available at:
 - `command.untitledpublishers.com/` → Redirects to home
 - `command.untitledpublishers.com/pages/home/`
 - `command.untitledpublishers.com/pages/helm/`
 - `command.untitledpublishers.com/pages/thread/`
 - etc.
 
-## CORS Configuration
+## Authentication
 
-The UP Command worker already has CORS enabled:
-```javascript
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-};
-```
+PIN-based login:
+- **Micaiah:** 1987
+- **Irene:** 1976
 
-## Testing Deployment
+Sessions persist for 7 days in localStorage.
 
-1. Visit the Cloudflare Pages URL (e.g., `up-command.pages.dev`)
-2. Verify PIN login works (1987 for Micaiah, 1976 for Irene)
-3. Check that API calls succeed (open browser console)
-4. Test navigation between pages
-5. Verify custom domain SSL is active
+## API Backend
+
+The dashboard calls the UP Command worker:
+- **Micaiah:** `https://up-command.micaiah-tasks.workers.dev`
+- **Irene:** `https://up-command-irene.micaiah-tasks.workers.dev`
+
+CORS is enabled on the worker for all origins.
+
+## Redeployment
+
+Automatic on push to `main` branch. No manual action needed.
 
 ## Troubleshooting
 
+### "Deploy command: npx wrangler deploy" error
+This means you created a **Workers** project instead of **Pages**. Delete and recreate as Pages.
+
 ### API calls failing
-- Check browser console for CORS errors
-- Verify the API URL in `shared/api.js` is correct
-- Ensure the UP Command worker is deployed
+1. Check browser console for errors
+2. Verify UP Command worker is deployed
+3. Check CORS headers in worker response
 
-### Auth not persisting
-- Check localStorage in browser dev tools
-- Verify `up_session` and `up_user_id` keys exist
-
-### Styles not loading
-- Check relative paths in HTML files
-- Verify `shared/styles.css` exists
-
-## Deployment URL
-
-After setup, the dashboard will be available at:
-- **Cloudflare Pages URL:** `https://up-command.pages.dev`
-- **Custom Domain:** `https://command.untitledpublishers.com`
+### Auth not working
+1. Clear localStorage
+2. Check browser console for errors
+3. Verify PIN is correct (4 digits)
