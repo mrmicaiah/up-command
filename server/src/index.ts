@@ -1,40 +1,10 @@
 /**
- * UP Command MCP Server
- * Main entry point with MCP agent, OAuth, and API routing
+ * UP Command API Server
+ * REST API for the UP Command dashboard
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { McpAgent } from "agents/mcp";
-import type { Env, ToolContext } from './types.js';
-import { registerAllTools } from './tools/index.js';
+import type { Env } from './types.js';
 import { GOOGLE_TOKEN_URL, GITHUB_TOKEN_URL, SERVICE_NAMES } from './oauth/index.js';
-
-// ==================
-// MCP AGENT
-// ==================
-export class UpCommandMCP extends McpAgent {
-  server = new McpServer({ name: "UP Command", version: "1.0.0" });
-
-  async init() {
-    const env = this.env as Env;
-    const userId = env.USER_ID || 'micaiah';
-
-    const getTeammates = (): string[] => {
-      const team = env.TEAM || 'micaiah,irene';
-      return team.split(',').map((t: string) => t.trim()).filter((t: string) => t !== userId);
-    };
-
-    const ctx: ToolContext = {
-      server: this.server,
-      env,
-      getCurrentUser: () => userId,
-      getTeammates,
-      getTeammate: () => getTeammates()[0] || 'unknown',
-    };
-
-    registerAllTools(ctx);
-  }
-}
 
 // ==================
 // REQUEST ROUTING
@@ -46,26 +16,25 @@ export default {
     const workerName = env.WORKER_NAME || 'up-command';
     const workerUrl = `https://${workerName}.micaiah-tasks.workers.dev`;
 
+    // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
         status: 'ok', name: 'UP Command', version: '1.0.0', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
+    // API routes
     if (url.pathname.startsWith('/api/')) {
       return handleApiRoutes(request, env, url, userId);
     }
 
+    // OAuth callbacks
     if (url.pathname === '/oauth/callback') {
       return handleGoogleOAuth(request, env, workerUrl);
     }
 
     if (url.pathname === '/oauth/github/callback') {
       return handleGitHubOAuth(request, env, workerUrl);
-    }
-
-    if (url.pathname.startsWith('/sse')) {
-      return UpCommandMCP.serveSSE('/sse').fetch(request, env, ctx);
     }
 
     return new Response('Not found', { status: 404 });
@@ -79,7 +48,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
   const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-Id',
     'Content-Type': 'application/json'
   };
 
@@ -152,6 +121,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
 
     return json({ error: 'Not found', path }, cors, 404);
   } catch (err: any) {
+    console.error('API Error:', err);
     return json({ error: err.message }, cors, 500);
   }
 }
@@ -282,117 +252,81 @@ interface ActivityItem {
 
 async function getActivityFeed(env: Env, userId: string, url: URL) {
   const limit = parseInt(url.searchParams.get('limit') || '20');
-  const before = url.searchParams.get('before'); // ISO timestamp for pagination
+  const before = url.searchParams.get('before');
   const typeFilter = url.searchParams.get('type');
   const userFilter = url.searchParams.get('user') || userId;
 
   const items: ActivityItem[] = [];
-  const beforeClause = before ? `AND timestamp < '${before}'` : '';
 
   // 1. Check-ins
   if (!typeFilter || typeFilter === 'check_in') {
-    const checkins = await env.DB.prepare(`
-      SELECT id, user_id, thread_summary, full_recap, created_at as timestamp 
-      FROM check_ins WHERE user_id = ? ${before ? `AND created_at < ?` : ''}
-      ORDER BY created_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
+    try {
+      const checkins = await env.DB.prepare(`
+        SELECT id, user_id, thread_summary, full_recap, created_at as timestamp 
+        FROM check_ins WHERE user_id = ? ${before ? `AND created_at < ?` : ''}
+        ORDER BY created_at DESC LIMIT ?
+      `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
 
-    (checkins.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'check_in', user: r.user_id, timestamp: r.timestamp,
-      summary: r.thread_summary, data: r
-    }));
+      (checkins.results || []).forEach((r: any) => items.push({
+        id: r.id, type: 'check_in', user: r.user_id, timestamp: r.timestamp,
+        summary: r.thread_summary, data: r
+      }));
+    } catch (e) { /* table may not exist */ }
   }
 
-  // 2. Work logs
-  if (!typeFilter || typeFilter === 'work_log') {
-    const logs = await env.DB.prepare(`
-      SELECT id, user_id, narrative, shipped, created_at as timestamp 
-      FROM work_logs WHERE user_id = ? ${before ? `AND created_at < ?` : ''}
-      ORDER BY created_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
-
-    (logs.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'work_log', user: r.user_id, timestamp: r.timestamp,
-      summary: r.narrative?.slice(0, 100) + '...', data: r
-    }));
-  }
-
-  // 3. Task completions
+  // 2. Task completions
   if (!typeFilter || typeFilter === 'task_complete') {
-    const tasks = await env.DB.prepare(`
-      SELECT id, user_id, text, project, category, completed_at as timestamp 
-      FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at IS NOT NULL
-      ${before ? `AND completed_at < ?` : ''}
-      ORDER BY completed_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
+    try {
+      const tasks = await env.DB.prepare(`
+        SELECT id, user_id, text, project, category, completed_at as timestamp 
+        FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at IS NOT NULL
+        ${before ? `AND completed_at < ?` : ''}
+        ORDER BY completed_at DESC LIMIT ?
+      `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
 
-    (tasks.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'task_complete', user: r.user_id, timestamp: r.timestamp,
-      summary: `Completed: ${r.text}`, data: r
-    }));
+      (tasks.results || []).forEach((r: any) => items.push({
+        id: r.id, type: 'task_complete', user: r.user_id, timestamp: r.timestamp,
+        summary: `Completed: ${r.text}`, data: r
+      }));
+    } catch (e) { /* table may not exist */ }
   }
 
-  // 4. Messages (received)
+  // 3. Messages (received)
   if (!typeFilter || typeFilter === 'message') {
-    const messages = await env.DB.prepare(`
-      SELECT id, from_user, to_user, content, created_at as timestamp 
-      FROM messages WHERE to_user = ? ${before ? `AND created_at < ?` : ''}
-      ORDER BY created_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
+    try {
+      const messages = await env.DB.prepare(`
+        SELECT id, from_user, to_user, content, created_at as timestamp 
+        FROM messages WHERE to_user = ? ${before ? `AND created_at < ?` : ''}
+        ORDER BY created_at DESC LIMIT ?
+      `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
 
-    (messages.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'message', user: r.from_user, timestamp: r.timestamp,
-      summary: `From ${r.from_user}: ${r.content?.slice(0, 80)}...`, data: r
-    }));
+      (messages.results || []).forEach((r: any) => items.push({
+        id: r.id, type: 'message', user: r.from_user, timestamp: r.timestamp,
+        summary: `From ${r.from_user}: ${r.content?.slice(0, 80)}...`, data: r
+      }));
+    } catch (e) { /* table may not exist */ }
   }
 
-  // 5. Handoff tasks created
-  if (!typeFilter || typeFilter === 'handoff_created') {
-    const created = await env.DB.prepare(`
-      SELECT id, created_by, instruction, project_name, priority, created_at as timestamp 
-      FROM handoff_tasks WHERE created_by = ? ${before ? `AND created_at < ?` : ''}
-      ORDER BY created_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
-
-    (created.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'handoff_created', user: r.created_by, timestamp: r.timestamp,
-      summary: `Created task: ${r.instruction?.slice(0, 60)}...`, data: r
-    }));
-  }
-
-  // 6. Handoff tasks completed
+  // 4. Handoff tasks completed
   if (!typeFilter || typeFilter === 'handoff_completed') {
-    const completed = await env.DB.prepare(`
-      SELECT id, claimed_by, instruction, output_summary, project_name, completed_at as timestamp 
-      FROM handoff_tasks WHERE status = 'complete' AND claimed_by = ? 
-      ${before ? `AND completed_at < ?` : ''}
-      ORDER BY completed_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
+    try {
+      const completed = await env.DB.prepare(`
+        SELECT id, claimed_by, instruction, output_summary, project_name, completed_at as timestamp 
+        FROM handoff_tasks WHERE status = 'complete' AND claimed_by = ? 
+        ${before ? `AND completed_at < ?` : ''}
+        ORDER BY completed_at DESC LIMIT ?
+      `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
 
-    (completed.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'handoff_completed', user: r.claimed_by || 'unknown', timestamp: r.timestamp,
-      summary: r.output_summary?.slice(0, 80) || `Completed: ${r.instruction?.slice(0, 60)}...`, data: r
-    }));
-  }
-
-  // 7. Journal entries (checkpoints)
-  if (!typeFilter || typeFilter === 'checkpoint') {
-    const journals = await env.DB.prepare(`
-      SELECT id, user_id, content, entry_type, mood, created_at as timestamp 
-      FROM journal_entries WHERE user_id = ? ${before ? `AND created_at < ?` : ''}
-      ORDER BY created_at DESC LIMIT ?
-    `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
-
-    (journals.results || []).forEach((r: any) => items.push({
-      id: r.id, type: 'checkpoint', user: r.user_id, timestamp: r.timestamp,
-      summary: r.content?.slice(0, 100) + '...', data: r
-    }));
+      (completed.results || []).forEach((r: any) => items.push({
+        id: r.id, type: 'handoff_completed', user: r.claimed_by || 'unknown', timestamp: r.timestamp,
+        summary: r.output_summary?.slice(0, 80) || `Completed: ${r.instruction?.slice(0, 60)}...`, data: r
+      }));
+    } catch (e) { /* table may not exist */ }
   }
 
   // Sort all by timestamp descending
   items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  // Limit and determine if there's more
   const limitedItems = items.slice(0, limit);
   const hasMore = items.length > limit;
 
@@ -400,56 +334,76 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
 }
 
 async function getUnreadCount(env: Env, userId: string) {
-  const messages = await env.DB.prepare(`SELECT COUNT(*) as count FROM messages WHERE to_user = ? AND read_at IS NULL`).bind(userId).first() as any;
-  return { count: messages?.count || 0 };
+  try {
+    const messages = await env.DB.prepare(`SELECT COUNT(*) as count FROM messages WHERE to_user = ? AND read_at IS NULL`).bind(userId).first() as any;
+    return { count: messages?.count || 0 };
+  } catch (e) {
+    return { count: 0 };
+  }
 }
 
 // ==================
 // HANDOFF HANDLERS
 // ==================
 async function listHandoffProjects(env: Env) {
-  const result = await env.DB.prepare(`
-    SELECT project_name, COUNT(*) as total,
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-      SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as complete
-    FROM handoff_tasks WHERE project_name IS NOT NULL GROUP BY project_name
-  `).all();
-  return { projects: result.results || [] };
+  try {
+    const result = await env.DB.prepare(`
+      SELECT project_name, COUNT(*) as total,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+        SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as complete
+      FROM handoff_tasks WHERE project_name IS NOT NULL GROUP BY project_name
+    `).all();
+    return { projects: result.results || [] };
+  } catch (e) {
+    return { projects: [] };
+  }
 }
 
 async function getHandoffProject(env: Env, projectName: string) {
-  const [tasks, stats] = await Promise.all([
-    env.DB.prepare(`SELECT * FROM handoff_tasks WHERE project_name = ? ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC`).bind(projectName).all(),
-    env.DB.prepare(`SELECT status, COUNT(*) as count FROM handoff_tasks WHERE project_name = ? GROUP BY status`).bind(projectName).all()
-  ]);
-  return { project: projectName, tasks: tasks.results || [], stats: stats.results || [] };
+  try {
+    const [tasks, stats] = await Promise.all([
+      env.DB.prepare(`SELECT * FROM handoff_tasks WHERE project_name = ? ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC`).bind(projectName).all(),
+      env.DB.prepare(`SELECT status, COUNT(*) as count FROM handoff_tasks WHERE project_name = ? GROUP BY status`).bind(projectName).all()
+    ]);
+    return { project: projectName, tasks: tasks.results || [], stats: stats.results || [] };
+  } catch (e) {
+    return { project: projectName, tasks: [], stats: [] };
+  }
 }
 
 async function getHandoffQueue(env: Env, url: URL) {
-  const status = url.searchParams.get('status');
-  const limit = parseInt(url.searchParams.get('limit') || '50');
-  let sql = `SELECT * FROM handoff_tasks WHERE 1=1`;
-  const params: any[] = [];
-  if (status) { sql += ` AND status = ?`; params.push(status); }
-  sql += ` ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC LIMIT ?`;
-  params.push(limit);
-  const result = await env.DB.prepare(sql).bind(...params).all();
-  return { tasks: result.results || [] };
+  try {
+    const status = url.searchParams.get('status');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
+    let sql = `SELECT * FROM handoff_tasks WHERE 1=1`;
+    const params: any[] = [];
+    if (status) { sql += ` AND status = ?`; params.push(status); }
+    sql += ` ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC LIMIT ?`;
+    params.push(limit);
+    const result = await env.DB.prepare(sql).bind(...params).all();
+    return { tasks: result.results || [] };
+  } catch (e) {
+    return { tasks: [] };
+  }
 }
 
 // ==================
 // MESSAGE HANDLERS
 // ==================
 async function listMessages(env: Env, userId: string, url: URL) {
-  const limit = parseInt(url.searchParams.get('limit') || '20');
-  const withUser = url.searchParams.get('with');
-  let sql = `SELECT * FROM messages WHERE (from_user = ? OR to_user = ?)`;
-  const params: any[] = [userId, userId];
-  if (withUser) { sql += ` AND (from_user = ? OR to_user = ?)`; params.push(withUser, withUser); }
-  sql += ` ORDER BY created_at DESC LIMIT ?`;
-  params.push(limit);
-  const result = await env.DB.prepare(sql).bind(...params).all();
-  return { messages: result.results || [] };
+  try {
+    const limit = parseInt(url.searchParams.get('limit') || '20');
+    const withUser = url.searchParams.get('with');
+    let sql = `SELECT * FROM messages WHERE (from_user = ? OR to_user = ?)`;
+    const params: any[] = [userId, userId];
+    if (withUser) { sql += ` AND (from_user = ? OR to_user = ?)`; params.push(withUser, withUser); }
+    sql += ` ORDER BY created_at DESC LIMIT ?`;
+    params.push(limit);
+    const result = await env.DB.prepare(sql).bind(...params).all();
+    return { messages: result.results || [] };
+  } catch (e) {
+    return { messages: [] };
+  }
 }
 
 async function sendMessage(env: Env, userId: string, data: any) {
@@ -459,18 +413,26 @@ async function sendMessage(env: Env, userId: string, data: any) {
 }
 
 async function getMessageUnreadCount(env: Env, userId: string) {
-  const result = await env.DB.prepare(`SELECT COUNT(*) as count FROM messages WHERE to_user = ? AND read_at IS NULL`).bind(userId).first() as any;
-  return { count: result?.count || 0 };
+  try {
+    const result = await env.DB.prepare(`SELECT COUNT(*) as count FROM messages WHERE to_user = ? AND read_at IS NULL`).bind(userId).first() as any;
+    return { count: result?.count || 0 };
+  } catch (e) {
+    return { count: 0 };
+  }
 }
 
 // ==================
 // INTEGRATION HANDLERS
 // ==================
 async function getIntegrationStatus(env: Env, userId: string) {
-  const tokens = await env.DB.prepare(`SELECT provider, expires_at FROM oauth_tokens WHERE user_id = ?`).bind(userId).all();
-  const services: Record<string, boolean> = { google_drive: false, gmail_personal: false, gmail_company: false, blogger_personal: false, blogger_company: false, github: false };
-  (tokens.results || []).forEach((t: any) => { services[t.provider] = true; });
-  return { services };
+  try {
+    const tokens = await env.DB.prepare(`SELECT provider, expires_at FROM oauth_tokens WHERE user_id = ?`).bind(userId).all();
+    const services: Record<string, boolean> = { google_drive: false, gmail_personal: false, gmail_company: false, blogger_personal: false, blogger_company: false, github: false };
+    (tokens.results || []).forEach((t: any) => { services[t.provider] = true; });
+    return { services };
+  } catch (e) {
+    return { services: {} };
+  }
 }
 
 // ==================
@@ -479,12 +441,24 @@ async function getIntegrationStatus(env: Env, userId: string) {
 async function getStatsOverview(env: Env, userId: string) {
   const taskStats = await getTaskStats(env, userId);
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-  const [weekCompleted, sprint, handoffPending] = await Promise.all([
-    env.DB.prepare(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at >= ?`).bind(userId, weekAgo.toISOString()).first(),
-    env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' LIMIT 1`).bind(userId).first(),
-    env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_tasks WHERE status = 'pending'`).first()
-  ]);
-  return { tasks: taskStats, weekCompleted: (weekCompleted as any)?.count || 0, activeSprint: sprint || null, handoffPending: (handoffPending as any)?.count || 0 };
+  
+  let weekCompleted = 0, sprint = null, handoffPending = 0;
+  
+  try {
+    const wc = await env.DB.prepare(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at >= ?`).bind(userId, weekAgo.toISOString()).first() as any;
+    weekCompleted = wc?.count || 0;
+  } catch (e) {}
+  
+  try {
+    sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' LIMIT 1`).bind(userId).first();
+  } catch (e) {}
+  
+  try {
+    const hp = await env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_tasks WHERE status = 'pending'`).first() as any;
+    handoffPending = hp?.count || 0;
+  } catch (e) {}
+  
+  return { tasks: taskStats, weekCompleted, activeSprint: sprint || null, handoffPending };
 }
 
 // ==================
