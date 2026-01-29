@@ -220,8 +220,7 @@
   </style>
 </head>
 <body>
-  <!-- Scripts load first, then initialize -->
-  <script src="../../shared/styles.css"></script>
+  <!-- Load shared JS modules -->
   <script src="../../shared/api.js"></script>
   <script src="../../shared/auth.js"></script>
   <script src="../../shared/nav.js"></script>
@@ -405,17 +404,17 @@
           Team.unreadCount()
         ]);
         
-        const tasks = tasksRes.data || [];
+        const tasks = tasksRes.tasks || [];
         const activeTasks = tasks.filter(t => t.is_active);
         
         // Count completed today
         const today = new Date().toISOString().split('T')[0];
         const completedRes = await Tasks.list({ status: 'done', completed_after: today });
-        const completedToday = completedRes.data?.length || 0;
+        const completedToday = completedRes.tasks?.length || 0;
         
         document.getElementById('stat-active').textContent = activeTasks.length;
         document.getElementById('stat-completed').textContent = completedToday;
-        document.getElementById('stat-handoff').textContent = handoffRes.data?.length || 0;
+        document.getElementById('stat-handoff').textContent = handoffRes.tasks?.length || 0;
         document.getElementById('stat-messages').textContent = messagesRes.count || 0;
       } catch (err) {
         console.error('Failed to load stats:', err);
@@ -428,9 +427,9 @@
     
     async function loadSprintContext() {
       try {
-        const sprint = await Sprints.current();
-        if (sprint && sprint.data) {
-          const s = sprint.data;
+        const result = await Sprints.current();
+        if (result && result.sprint) {
+          const s = result.sprint;
           const daysLeft = Math.ceil((new Date(s.end_date) - new Date()) / 86400000);
           document.getElementById('sprint-context').innerHTML = `
             <span>🏃</span>
@@ -454,7 +453,7 @@
       const container = document.getElementById('focus-tasks');
       try {
         const res = await Tasks.list({ status: 'open', is_active: true, limit: 5 });
-        const tasks = res.data || [];
+        const tasks = res.tasks || [];
         
         if (tasks.length === 0) {
           container.innerHTML = `
@@ -479,7 +478,7 @@
       const container = document.getElementById('incoming-tasks');
       try {
         const res = await Handoff.queue({ status: 'pending', limit: 5 });
-        const tasks = res.data || [];
+        const tasks = res.tasks || [];
         
         if (tasks.length === 0) {
           container.innerHTML = `
@@ -513,7 +512,7 @@
       try {
         const today = new Date().toISOString().split('T')[0];
         const res = await Tasks.list({ status: 'open', due_date: today });
-        const tasks = res.data || [];
+        const tasks = res.tasks || [];
         
         if (tasks.length === 0) {
           container.innerHTML = `
@@ -535,7 +534,7 @@
       const container = document.getElementById('mini-thread');
       try {
         const res = await Activity.list({ limit: 5 });
-        const items = res.data || [];
+        const items = res.items || [];
         
         if (items.length === 0) {
           container.innerHTML = `
@@ -549,11 +548,12 @@
         
         container.innerHTML = items.map(item => {
           const typeConfig = {
-            checkin: { icon: '📝', color: 'var(--accent)' },
+            check_in: { icon: '📝', color: 'var(--accent)' },
             task_complete: { icon: '✅', color: 'var(--success)' },
             message: { icon: '💬', color: 'var(--info)' },
             handoff_created: { icon: '📤', color: 'var(--warning)' },
-            handoff_complete: { icon: '📥', color: 'var(--success)' }
+            handoff_completed: { icon: '📥', color: 'var(--success)' },
+            checkpoint: { icon: '📓', color: 'var(--accent)' }
           };
           const config = typeConfig[item.type] || { icon: '•', color: 'var(--text-muted)' };
           
@@ -563,8 +563,8 @@
               <div class="task-content">
                 <div class="task-text">${escapeHtml(item.summary)}</div>
                 <div class="task-meta">
-                  ${item.project ? `<span class="text-accent">${escapeHtml(item.project)}</span>` : ''}
-                  <span>${formatRelativeTime(item.created_at)}</span>
+                  ${item.data?.project ? `<span class="text-accent">${escapeHtml(item.data.project)}</span>` : ''}
+                  <span>${formatRelativeTime(item.timestamp)}</span>
                 </div>
               </div>
             </div>
