@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Integrations - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <style>
+    .integrations-header {
+      margin-bottom: var(--space-8);
+    }
+    
+    .integrations-title {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-semibold);
+      margin-bottom: var(--space-2);
+    }
+    
+    .integrations-subtitle {
+      color: var(--text-secondary);
+      font-size: var(--text-base);
+    }
+    
+    .stats-row {
+      display: flex;
+      gap: var(--space-6);
+      margin-bottom: var(--space-8);
+    }
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: var(--text-2xl);
+      font-weight: var(--font-bold);
+    }
+    
+    .stat-label {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+    
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+      margin-bottom: var(--space-4);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .integrations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    
+    .integration-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      transition: all var(--transition-fast);
+    }
+    
+    .integration-card:hover {
+      border-color: var(--border-light);
+    }
+    
+    .integration-card.connected {
+      border-color: var(--success);
+      border-width: 1px;
+    }
+    
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+    
+    .service-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      flex-shrink: 0;
+    }
+    
+    .service-icon.google { background: linear-gradient(135deg, #4285f4, #34a853); }
+    .service-icon.github { background: #24292e; }
+    .service-icon.cloudinary { background: linear-gradient(135deg, #3448c5, #5f4def); }
+    .service-icon.blogger { background: #f57c00; }
+    .service-icon.analytics { background: linear-gradient(135deg, #f9ab00, #e37400); }
+    .service-icon.contacts { background: #1a73e8; }
+    .service-icon.default { background: var(--bg-hover); }
+    
+    .service-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .service-name {
+      font-weight: var(--font-semibold);
+      font-size: var(--text-base);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-1);
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    
+    .status-dot.connected {
+      background: var(--success);
+    }
+    
+    .service-account {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .service-description {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+      margin-bottom: var(--space-4);
+      line-height: 1.5;
+    }
+    
+    .features-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+    
+    .feature-tag {
+      font-size: var(--text-xs);
+      padding: var(--space-1) var(--space-2);
+      background: var(--bg-hover);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+    
+    .feature-tag.active {
+      background: var(--success-muted);
+      color: var(--success);
+    }
+    
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--border);
+    }
+    
+    .last-used {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .available-section {
+      margin-top: var(--space-8);
+    }
+    
+    .available-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: var(--space-4);
+    }
+    
+    .available-card {
+      background: var(--bg-secondary);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-5);
+      text-align: center;
+      transition: all var(--transition-fast);
+      cursor: pointer;
+    }
+    
+    .available-card:hover {
+      border-color: var(--accent);
+      border-style: solid;
+      background: var(--bg-card);
+    }
+    
+    .available-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin: 0 auto var(--space-3);
+      opacity: 0.7;
+    }
+    
+    .available-name {
+      font-weight: var(--font-medium);
+      margin-bottom: var(--space-1);
+    }
+    
+    .available-desc {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+    }
+    
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-8);
+      color: var(--text-muted);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+    }
+    
+    .empty-icon {
+      font-size: 3rem;
+      margin-bottom: var(--space-4);
+    }
+    
+    /* Confirmation Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-4);
+    }
+    
+    .modal-backdrop.visible {
+      display: flex;
+    }
+    
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .modal-header {
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .modal-body {
+      padding: var(--space-6);
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    const SERVICES = {
+      google_drive: {
+        name: 'Google Drive',
+        icon: '📁',
+        iconClass: 'google',
+        description: 'Store and access files, save documents, and sync work across devices.',
+        features: ['File storage', 'Document sync', 'Folder management'],
+        account: 'personal'
+      },
+      gmail_personal: {
+        name: 'Gmail (Personal)',
+        icon: '📧',
+        iconClass: 'google',
+        description: 'Read, send, and manage email from your personal Gmail account.',
+        features: ['Read emails', 'Send emails', 'Search inbox'],
+        account: 'personal'
+      },
+      gmail_company: {
+        name: 'Gmail (Company)',
+        icon: '📨',
+        iconClass: 'google',
+        description: 'Access your company email for business communications.',
+        features: ['Read emails', 'Send emails', 'Business comms'],
+        account: 'company'
+      },
+      github: {
+        name: 'GitHub',
+        icon: '🐙',
+        iconClass: 'github',
+        description: 'Manage repositories, push files, and track deployments.',
+        features: ['Repo access', 'File push', 'Deploy status'],
+        account: null
+      },
+      blogger_personal: {
+        name: 'Blogger (Personal)',
+        icon: '✍️',
+        iconClass: 'blogger',
+        description: 'Create and manage posts on your personal blog.',
+        features: ['Create posts', 'Edit drafts', 'Publish'],
+        account: 'personal'
+      },
+      blogger_company: {
+        name: 'Blogger (Company)',
+        icon: '📝',
+        iconClass: 'blogger',
+        description: 'Manage company blog content and publications.',
+        features: ['Create posts', 'Edit drafts', 'Publish'],
+        account: 'company'
+      },
+      google_analytics: {
+        name: 'Google Analytics',
+        icon: '📊',
+        iconClass: 'analytics',
+        description: 'View website traffic, user behavior, and performance metrics.',
+        features: ['Traffic data', 'Real-time', 'Reports'],
+        account: null
+      },
+      google_contacts_personal: {
+        name: 'Contacts (Personal)',
+        icon: '👤',
+        iconClass: 'contacts',
+        description: 'Look up contact information from your personal contacts.',
+        features: ['Contact lookup', 'Email search'],
+        account: 'personal'
+      },
+      google_contacts_company: {
+        name: 'Contacts (Company)',
+        icon: '👥',
+        iconClass: 'contacts',
+        description: 'Access company directory and business contacts.',
+        features: ['Directory search', 'Business contacts'],
+        account: 'company'
+      },
+      cloudinary: {
+        name: 'Cloudinary',
+        icon: '🖼️',
+        iconClass: 'cloudinary',
+        description: 'Upload, store, and optimize images for web use.',
+        features: ['Image upload', 'Optimization', 'CDN delivery'],
+        account: null,
+        apiKey: true
+      }
+    };
+    
+    let connectedServices = {};
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('integrations', { showThread: false });
+      main.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <span>Loading integrations...</span>
+        </div>
+      `;
+      
+      await loadIntegrations();
+    });
+    
+    async function loadIntegrations() {
+      try {
+        const status = await Integrations.status();
+        connectedServices = status?.services || {};
+        renderPage();
+      } catch (err) {
+        console.error('Failed to load integrations:', err);
+        const main = document.querySelector('main');
+        main.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">❌</div>
+            <p>Failed to load integrations</p>
+            <button class="btn btn-secondary mt-4" onclick="loadIntegrations()">Retry</button>
+          </div>
+        `;
+      }
+    }
+    
+    function renderPage() {
+      const main = document.querySelector('main');
+      const connectedCount = Object.values(connectedServices).filter(Boolean).length;
+      const totalCount = Object.keys(SERVICES).length;
+      
+      // Separate connected and available
+      const connected = [];
+      const available = [];
+      
+      Object.entries(SERVICES).forEach(([key, service]) => {
+        if (connectedServices[key]) {
+          connected.push({ key, ...service });
+        } else {
+          available.push({ key, ...service });
+        }
+      });
+      
+      main.innerHTML = `
+        <header class="integrations-header">
+          <h1 class="integrations-title">🔌 Integrations</h1>
+          <p class="integrations-subtitle">Connect services to unlock features and sync data</p>
+        </header>
+        
+        <div class="stats-row">
+          <div class="stat-item">
+            <span class="stat-value text-success">${connectedCount}</span>
+            <span class="stat-label">Connected</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value">${available.length}</span>
+            <span class="stat-label">Available</span>
+          </div>
+        </div>
+        
+        ${connected.length > 0 ? `
+          <h2 class="section-title">✅ Connected Services</h2>
+          <div class="integrations-grid">
+            ${connected.map(service => renderConnectedCard(service)).join('')}
+          </div>
+        ` : ''}
+        
+        ${available.length > 0 ? `
+          <div class="available-section">
+            <h2 class="section-title">➕ Available Integrations</h2>
+            <div class="available-grid">
+              ${available.map(service => renderAvailableCard(service)).join('')}
+            </div>
+          </div>
+        ` : ''}
+        
+        ${renderDisconnectModal()}
+      `;
+    }
+    
+    function renderConnectedCard(service) {
+      return `
+        <div class="integration-card connected">
+          <div class="card-header">
+            <div class="service-icon ${service.iconClass}">${service.icon}</div>
+            <div class="service-info">
+              <div class="service-name">
+                ${service.name}
+                <span class="status-dot connected"></span>
+              </div>
+              ${service.account ? `<div class="service-account">${service.account} account</div>` : ''}
+            </div>
+          </div>
+          <p class="service-description">${service.description}</p>
+          <div class="features-list">
+            ${service.features.map(f => `<span class="feature-tag active">✓ ${f}</span>`).join('')}
+          </div>
+          <div class="card-footer">
+            <span class="last-used">Connected</span>
+            <button class="btn btn-sm btn-secondary" onclick="showDisconnectModal('${service.key}', '${service.name}')">
+              Disconnect
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderAvailableCard(service) {
+      return `
+        <div class="available-card" onclick="connectService('${service.key}')">
+          <div class="available-icon service-icon ${service.iconClass}">${service.icon}</div>
+          <div class="available-name">${service.name}</div>
+          <div class="available-desc">${service.features.join(' • ')}</div>
+        </div>
+      `;
+    }
+    
+    function renderDisconnectModal() {
+      return `
+        <div class="modal-backdrop" id="disconnect-modal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="modal-title">Disconnect Service</h3>
+            </div>
+            <div class="modal-body">
+              <p>Are you sure you want to disconnect <strong id="disconnect-service-name"></strong>?</p>
+              <p class="text-muted text-sm mt-2">You'll need to reconnect to use features that depend on this service.</p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideDisconnectModal()">Cancel</button>
+              <button class="btn btn-danger" id="disconnect-confirm-btn">Disconnect</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    let pendingDisconnect = null;
+    
+    function showDisconnectModal(serviceKey, serviceName) {
+      pendingDisconnect = serviceKey;
+      document.getElementById('disconnect-service-name').textContent = serviceName;
+      document.getElementById('disconnect-confirm-btn').onclick = () => disconnectService(serviceKey);
+      document.getElementById('disconnect-modal').classList.add('visible');
+    }
+    
+    function hideDisconnectModal() {
+      document.getElementById('disconnect-modal').classList.remove('visible');
+      pendingDisconnect = null;
+    }
+    
+    async function connectService(serviceKey) {
+      try {
+        // Show loading state on the card
+        const cards = document.querySelectorAll('.available-card');
+        cards.forEach(card => {
+          if (card.onclick.toString().includes(serviceKey)) {
+            card.innerHTML = `<div class="spinner spinner-sm"></div><p class="text-sm mt-2">Connecting...</p>`;
+            card.onclick = null;
+          }
+        });
+        
+        const result = await Integrations.connect(serviceKey);
+        
+        if (result?.url) {
+          // Open OAuth flow in new window
+          const authWindow = window.open(result.url, '_blank', 'width=600,height=700');
+          
+          // Poll for completion
+          const checkInterval = setInterval(async () => {
+            try {
+              const status = await Integrations.status();
+              if (status?.services?.[serviceKey]) {
+                clearInterval(checkInterval);
+                await loadIntegrations();
+              }
+            } catch (e) {}
+          }, 2000);
+          
+          // Stop polling after 5 minutes
+          setTimeout(() => clearInterval(checkInterval), 300000);
+        } else {
+          // Reload to show updated status
+          await loadIntegrations();
+        }
+      } catch (err) {
+        console.error('Failed to connect:', err);
+        alert('Failed to connect service. Please try again.');
+        await loadIntegrations();
+      }
+    }
+    
+    async function disconnectService(serviceKey) {
+      hideDisconnectModal();
+      
+      try {
+        await Integrations.disconnect(serviceKey);
+        await loadIntegrations();
+      } catch (err) {
+        console.error('Failed to disconnect:', err);
+        alert('Failed to disconnect service. Please try again.');
+      }
+    }
+  </script>
+</body>
+</html>
