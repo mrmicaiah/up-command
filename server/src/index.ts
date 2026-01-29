@@ -6,6 +6,8 @@
 import type { Env } from './types.js';
 import { GOOGLE_TOKEN_URL, GITHUB_TOKEN_URL, SERVICE_NAMES } from './oauth/index.js';
 
+const ANALYTICS_DATA_API = 'https://analyticsdata.googleapis.com/v1beta';
+
 // ==================
 // REQUEST ROUTING
 // ==================
@@ -126,7 +128,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       return json(await getIntegrationStatus(env, userId), cors);
     }
 
-    // ANALYTICS - stub endpoints until GA4 is properly integrated
+    // ANALYTICS - Full GA4 integration
     if (segments[0] === 'analytics') {
       if (segments[1] === 'properties' && method === 'GET') {
         return json(await getAnalyticsProperties(env, userId), cors);
@@ -162,6 +164,50 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
 
 function json(data: any, headers: Record<string, string>, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers });
+}
+
+// ==================
+// TOKEN HELPERS
+// ==================
+async function getValidToken(env: Env, userId: string, provider: string = 'google_drive'): Promise<string | null> {
+  const token = await env.DB.prepare(
+    'SELECT * FROM oauth_tokens WHERE user_id = ? AND provider = ?'
+  ).bind(userId, provider).first() as any;
+  
+  if (!token) return null;
+  
+  // GitHub tokens don't expire the same way
+  if (provider === 'github') {
+    return token.access_token;
+  }
+  
+  // Check if token is expired
+  if (token.expires_at && new Date(token.expires_at) < new Date()) {
+    // Refresh the token
+    const response = await fetch(GOOGLE_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: env.GOOGLE_CLIENT_ID || '',
+        client_secret: env.GOOGLE_CLIENT_SECRET || '',
+        refresh_token: token.refresh_token,
+        grant_type: 'refresh_token',
+      }),
+    });
+    
+    if (!response.ok) return null;
+    
+    const data: any = await response.json();
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
+    
+    await env.DB.prepare(
+      'UPDATE oauth_tokens SET access_token = ?, expires_at = ? WHERE user_id = ? AND provider = ?'
+    ).bind(data.access_token, expiresAt, userId, provider).run();
+    
+    return data.access_token;
+  }
+  
+  return token.access_token;
 }
 
 // ==================
@@ -603,31 +649,34 @@ async function getIntegrationStatus(env: Env, userId: string) {
 }
 
 // ==================
-// ANALYTICS HANDLERS (stub - requires GA4 OAuth integration)
+// ANALYTICS HANDLERS - Full GA4 Integration
 // ==================
 async function getAnalyticsProperties(env: Env, userId: string) {
-  // Check if google_analytics token exists
   try {
-    const token = await env.DB.prepare(
-      `SELECT * FROM oauth_tokens WHERE user_id = ? AND provider = 'google_analytics'`
-    ).bind(userId).first();
-    
+    // Check if analytics is connected
+    const token = await getValidToken(env, userId, 'google_analytics');
     if (!token) {
       return { 
         properties: [], 
-        error: 'Google Analytics not connected. Connect via MCP tools first.',
+        error: 'Google Analytics not connected',
         needsConnection: true
       };
     }
     
-    // TODO: Actually query GA4 Admin API for properties
-    // For now return empty with helpful message
+    // Get configured properties from database
+    const properties = await env.DB.prepare(
+      'SELECT * FROM analytics_properties WHERE user_id = ? ORDER BY name'
+    ).bind(userId).all();
+    
     return { 
-      properties: [],
-      message: 'GA4 API integration pending. Use MCP tools for now.'
+      properties: (properties.results || []).map((p: any) => ({
+        property_id: p.property_id,
+        name: p.name,
+        blog_id: p.blog_id
+      }))
     };
-  } catch (e) {
-    return { properties: [], error: 'Failed to check analytics connection' };
+  } catch (e: any) {
+    return { properties: [], error: e.message };
   }
 }
 
@@ -635,72 +684,382 @@ async function getAnalyticsReport(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
   const days = parseInt(url.searchParams.get('days') || '7');
   
-  if (!propertyId) {
-    return { error: 'property_id required' };
+  // If no property specified, try to get the first one
+  let propId = propertyId;
+  if (!propId) {
+    const prop = await env.DB.prepare(
+      'SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1'
+    ).bind(userId).first() as any;
+    if (prop) propId = prop.property_id;
   }
   
-  // Stub response - would integrate with GA4 Data API
-  return {
-    users: 0,
-    pageViews: 0,
-    sessions: 0,
-    avgSessionDuration: 0,
-    daily: [],
-    message: 'GA4 API integration pending. Use MCP tools for now.'
-  };
+  if (!propId) {
+    return { error: 'No GA4 property configured', needsProperty: true };
+  }
+  
+  const token = await getValidToken(env, userId, 'google_analytics');
+  if (!token) {
+    return { error: 'Google Analytics not connected', needsConnection: true };
+  }
+  
+  try {
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dateRanges: [
+          { startDate: `${days}daysAgo`, endDate: 'today' },
+          { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` } // Previous period for comparison
+        ],
+        dimensions: [{ name: 'date' }],
+        metrics: [
+          { name: 'activeUsers' },
+          { name: 'screenPageViews' },
+          { name: 'sessions' },
+          { name: 'averageSessionDuration' }
+        ],
+        orderBys: [{ dimension: { orderType: 'ALPHANUMERIC', dimensionName: 'date' } }]
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      return { error: `GA4 API error: ${error}` };
+    }
+    
+    const data: any = await response.json();
+    
+    // Calculate totals for current period
+    let users = 0, pageViews = 0, sessions = 0, totalDuration = 0;
+    let prevUsers = 0, prevPageViews = 0, prevSessions = 0, prevDuration = 0;
+    const daily: any[] = [];
+    
+    if (data.rows) {
+      for (const row of data.rows) {
+        const dateRangeIndex = parseInt(row.dimensionValues?.[0]?.value?.slice(0, 1) || '0') >= 2 ? 1 : 0;
+        const rowUsers = parseFloat(row.metricValues[0]?.value || 0);
+        const rowViews = parseFloat(row.metricValues[1]?.value || 0);
+        const rowSessions = parseFloat(row.metricValues[2]?.value || 0);
+        const rowDuration = parseFloat(row.metricValues[3]?.value || 0);
+        
+        // Determine which period this row belongs to based on date
+        const dateStr = row.dimensionValues[0]?.value;
+        if (dateStr) {
+          const date = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+          const rowDate = new Date(date);
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - days);
+          
+          if (rowDate >= cutoffDate) {
+            // Current period
+            users += rowUsers;
+            pageViews += rowViews;
+            sessions += rowSessions;
+            totalDuration += rowDuration * rowSessions; // Weighted by sessions
+            
+            daily.push({
+              date,
+              users: Math.round(rowUsers),
+              pageViews: Math.round(rowViews),
+              sessions: Math.round(rowSessions)
+            });
+          } else {
+            // Previous period
+            prevUsers += rowUsers;
+            prevPageViews += rowViews;
+            prevSessions += rowSessions;
+            prevDuration += rowDuration * rowSessions;
+          }
+        }
+      }
+    }
+    
+    // Calculate changes
+    const usersChange = prevUsers > 0 ? ((users - prevUsers) / prevUsers) * 100 : 0;
+    const pageViewsChange = prevPageViews > 0 ? ((pageViews - prevPageViews) / prevPageViews) * 100 : 0;
+    const sessionsChange = prevSessions > 0 ? ((sessions - prevSessions) / prevSessions) * 100 : 0;
+    const avgDuration = sessions > 0 ? totalDuration / sessions : 0;
+    const prevAvgDuration = prevSessions > 0 ? prevDuration / prevSessions : 0;
+    const durationChange = prevAvgDuration > 0 ? ((avgDuration - prevAvgDuration) / prevAvgDuration) * 100 : 0;
+    
+    return {
+      users: Math.round(users),
+      pageViews: Math.round(pageViews),
+      sessions: Math.round(sessions),
+      avgSessionDuration: avgDuration,
+      usersChange,
+      pageViewsChange,
+      sessionsChange,
+      durationChange,
+      daily: daily.sort((a, b) => a.date.localeCompare(b.date))
+    };
+  } catch (e: any) {
+    return { error: e.message };
+  }
 }
 
 async function getAnalyticsRealtime(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
   
-  if (!propertyId) {
-    return { error: 'property_id required' };
+  let propId = propertyId;
+  if (!propId) {
+    const prop = await env.DB.prepare(
+      'SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1'
+    ).bind(userId).first() as any;
+    if (prop) propId = prop.property_id;
   }
   
-  return {
-    activeUsers: 0,
-    topPages: [],
-    message: 'GA4 API integration pending. Use MCP tools for now.'
-  };
+  if (!propId) {
+    return { activeUsers: 0, topPages: [], error: 'No GA4 property configured' };
+  }
+  
+  const token = await getValidToken(env, userId, 'google_analytics');
+  if (!token) {
+    return { activeUsers: 0, topPages: [], error: 'Google Analytics not connected' };
+  }
+  
+  try {
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runRealtimeReport`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dimensions: [{ name: 'unifiedScreenName' }],
+        metrics: [{ name: 'activeUsers' }],
+        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
+        limit: 10
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      return { activeUsers: 0, topPages: [], error: `GA4 API error: ${error}` };
+    }
+    
+    const data: any = await response.json();
+    
+    let totalUsers = 0;
+    const topPages: any[] = [];
+    
+    if (data.rows) {
+      for (const row of data.rows) {
+        const users = parseInt(row.metricValues[0]?.value || 0);
+        totalUsers += users;
+        topPages.push({
+          pageTitle: row.dimensionValues[0]?.value || 'Unknown',
+          activeUsers: users
+        });
+      }
+    }
+    
+    return { activeUsers: totalUsers, topPages };
+  } catch (e: any) {
+    return { activeUsers: 0, topPages: [], error: e.message };
+  }
 }
 
 async function getAnalyticsTopContent(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
+  const days = parseInt(url.searchParams.get('days') || '30');
+  const limit = parseInt(url.searchParams.get('limit') || '10');
   
-  if (!propertyId) {
-    return { error: 'property_id required' };
+  let propId = propertyId;
+  if (!propId) {
+    const prop = await env.DB.prepare(
+      'SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1'
+    ).bind(userId).first() as any;
+    if (prop) propId = prop.property_id;
   }
   
-  return {
-    pages: [],
-    message: 'GA4 API integration pending. Use MCP tools for now.'
-  };
+  if (!propId) {
+    return { pages: [], error: 'No GA4 property configured' };
+  }
+  
+  const token = await getValidToken(env, userId, 'google_analytics');
+  if (!token) {
+    return { pages: [], error: 'Google Analytics not connected' };
+  }
+  
+  try {
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+        metrics: [
+          { name: 'screenPageViews' },
+          { name: 'activeUsers' },
+          { name: 'averageSessionDuration' }
+        ],
+        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+        limit
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      return { pages: [], error: `GA4 API error: ${error}` };
+    }
+    
+    const data: any = await response.json();
+    const pages: any[] = [];
+    
+    if (data.rows) {
+      for (const row of data.rows) {
+        pages.push({
+          pageTitle: row.dimensionValues[0]?.value || 'Untitled',
+          pagePath: row.dimensionValues[1]?.value || '/',
+          pageViews: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
+          users: Math.round(parseFloat(row.metricValues[1]?.value || 0)),
+          avgDuration: parseFloat(row.metricValues[2]?.value || 0)
+        });
+      }
+    }
+    
+    return { pages };
+  } catch (e: any) {
+    return { pages: [], error: e.message };
+  }
 }
 
 async function getAnalyticsSources(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
+  const days = parseInt(url.searchParams.get('days') || '30');
   
-  if (!propertyId) {
-    return { error: 'property_id required' };
+  let propId = propertyId;
+  if (!propId) {
+    const prop = await env.DB.prepare(
+      'SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1'
+    ).bind(userId).first() as any;
+    if (prop) propId = prop.property_id;
   }
   
-  return {
-    sources: [],
-    message: 'GA4 API integration pending. Use MCP tools for now.'
-  };
+  if (!propId) {
+    return { sources: [], error: 'No GA4 property configured' };
+  }
+  
+  const token = await getValidToken(env, userId, 'google_analytics');
+  if (!token) {
+    return { sources: [], error: 'Google Analytics not connected' };
+  }
+  
+  try {
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
+        metrics: [
+          { name: 'sessions' },
+          { name: 'activeUsers' },
+          { name: 'bounceRate' }
+        ],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 15
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      return { sources: [], error: `GA4 API error: ${error}` };
+    }
+    
+    const data: any = await response.json();
+    const sources: any[] = [];
+    
+    if (data.rows) {
+      for (const row of data.rows) {
+        sources.push({
+          source: row.dimensionValues[0]?.value || '(direct)',
+          medium: row.dimensionValues[1]?.value || '(none)',
+          sessions: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
+          users: Math.round(parseFloat(row.metricValues[1]?.value || 0)),
+          bounceRate: parseFloat(row.metricValues[2]?.value || 0) * 100
+        });
+      }
+    }
+    
+    return { sources };
+  } catch (e: any) {
+    return { sources: [], error: e.message };
+  }
 }
 
 async function getAnalyticsGeography(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
+  const days = parseInt(url.searchParams.get('days') || '30');
   
-  if (!propertyId) {
-    return { error: 'property_id required' };
+  let propId = propertyId;
+  if (!propId) {
+    const prop = await env.DB.prepare(
+      'SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1'
+    ).bind(userId).first() as any;
+    if (prop) propId = prop.property_id;
   }
   
-  return {
-    countries: [],
-    message: 'GA4 API integration pending. Use MCP tools for now.'
-  };
+  if (!propId) {
+    return { countries: [], error: 'No GA4 property configured' };
+  }
+  
+  const token = await getValidToken(env, userId, 'google_analytics');
+  if (!token) {
+    return { countries: [], error: 'Google Analytics not connected' };
+  }
+  
+  try {
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
+        dimensions: [{ name: 'country' }],
+        metrics: [
+          { name: 'activeUsers' },
+          { name: 'sessions' }
+        ],
+        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
+        limit: 20
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      return { countries: [], error: `GA4 API error: ${error}` };
+    }
+    
+    const data: any = await response.json();
+    const countries: any[] = [];
+    
+    if (data.rows) {
+      for (const row of data.rows) {
+        countries.push({
+          country: row.dimensionValues[0]?.value || 'Unknown',
+          users: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
+          sessions: Math.round(parseFloat(row.metricValues[1]?.value || 0))
+        });
+      }
+    }
+    
+    return { countries };
+  } catch (e: any) {
+    return { countries: [], error: e.message };
+  }
 }
 
 // ==================
