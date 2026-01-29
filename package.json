@@ -1,0 +1,20 @@
+{
+  "name": "up-command",
+  "version": "1.0.0",
+  "description": "UP Command Center - Unified productivity platform",
+  "type": "module",
+  "scripts": {
+    "dev": "cd server && wrangler dev",
+    "deploy": "cd server && wrangler deploy",
+    "deploy:irene": "cd server && wrangler deploy --config wrangler-irene.jsonc",
+    "deploy:all": "npm run deploy && npm run deploy:irene"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240512.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.57.0"
+  }
+}
