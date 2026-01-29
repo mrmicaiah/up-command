@@ -222,16 +222,31 @@ async function getCurrentSprint(env: Env, userId: string) {
     const sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(userId).first();
     if (!sprint) return { sprint: null, objectives: [], tasks: [] };
 
-    // Use 'objectives' table (not sprint_objectives) - matches existing productivity-brain schema
-    const objectives = await env.DB.prepare(`SELECT * FROM objectives WHERE sprint_id = ? ORDER BY sort_order ASC`).bind((sprint as any).id).all();
+    // Get objectives for this sprint
+    const objectivesResult = await env.DB.prepare(`SELECT * FROM objectives WHERE sprint_id = ? ORDER BY sort_order ASC`).bind((sprint as any).id).all();
+    const objectives = objectivesResult.results || [];
 
-    // Tasks are linked via objective_id directly (not through a join table)
-    const tasks = await env.DB.prepare(`SELECT * FROM tasks WHERE user_id = ? AND objective_id IS NOT NULL AND status = 'open'`).bind(userId).all();
+    // Get tasks for each objective - must query by specific objective IDs
+    const allTasks: any[] = [];
+    
+    if (objectives.length > 0) {
+      // Build list of objective IDs
+      const objectiveIds = objectives.map((o: any) => o.id);
+      
+      // Query tasks that belong to any of these objectives
+      // Using IN clause with the objective IDs from THIS sprint
+      const placeholders = objectiveIds.map(() => '?').join(',');
+      const tasksResult = await env.DB.prepare(
+        `SELECT * FROM tasks WHERE user_id = ? AND objective_id IN (${placeholders}) ORDER BY status ASC, is_active DESC, priority DESC`
+      ).bind(userId, ...objectiveIds).all();
+      
+      allTasks.push(...(tasksResult.results || []));
+    }
 
     return { 
       sprint, 
-      objectives: objectives.results || [], 
-      tasks: tasks.results || [] 
+      objectives, 
+      tasks: allTasks 
     };
   } catch (e: any) {
     console.error('getCurrentSprint error:', e);
