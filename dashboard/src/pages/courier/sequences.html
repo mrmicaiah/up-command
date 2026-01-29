@@ -18,10 +18,18 @@
   
   <script>
     let allSequences = [];
+    let allLists = [];
+    let selectedList = '';
+    let selectedStatus = '';
     
     document.addEventListener('DOMContentLoaded', async () => {
       const user = requireAuth();
       if (!user) return;
+      
+      // Check for filters in URL
+      const params = new URLSearchParams(window.location.search);
+      selectedList = params.get('list') || '';
+      selectedStatus = params.get('status') || '';
       
       const main = initLayout('courier', { showThread: false });
       main.innerHTML = renderPage();
@@ -49,7 +57,27 @@
         
         <div class="section-header" style="margin-bottom: var(--space-6);">
           <h2 class="section-title">🔄 Sequences</h2>
-          <button class="btn btn-primary" onclick="showNewSequenceModal()">+ New Sequence</button>
+          <div style="display: flex; gap: var(--space-3); align-items: center;">
+            <select id="list-filter" class="form-select" onchange="applyFilters()">
+              <option value="">All Lists</option>
+            </select>
+            <select id="status-filter" class="form-select" onchange="applyFilters()">
+              <option value="">All Statuses</option>
+              <option value="active" ${selectedStatus === 'active' ? 'selected' : ''}>Active</option>
+              <option value="paused" ${selectedStatus === 'paused' ? 'selected' : ''}>Paused</option>
+              <option value="draft" ${selectedStatus === 'draft' ? 'selected' : ''}>Draft</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="info-box" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6);">
+          <div style="display: flex; align-items: center; gap: var(--space-3);">
+            <span style="font-size: 1.5rem;">💡</span>
+            <div>
+              <div class="text-sm font-medium">What are sequences?</div>
+              <div class="text-xs text-muted">Automated email series triggered when someone subscribes or performs an action. Great for welcome series, onboarding, and drip campaigns.</div>
+            </div>
+          </div>
         </div>
         
         <div class="section-card">
@@ -61,18 +89,42 @@
     }
     
     async function loadData() {
+      // Load lists for filter dropdown
+      try {
+        const listsResult = await CourierAPI.lists();
+        allLists = listsResult.lists || [];
+        
+        const listFilter = document.getElementById('list-filter');
+        listFilter.innerHTML = '<option value="">All Lists</option>' + 
+          allLists.map(l => `<option value="${l.id}" ${l.id === selectedList ? 'selected' : ''}>${escapeHtml(l.name)}</option>`).join('');
+      } catch (err) {
+        console.error('Failed to load lists:', err);
+      }
+      
+      await loadSequences();
+    }
+    
+    async function loadSequences() {
       const container = document.getElementById('sequences-container');
       try {
         const result = await CourierAPI.sequences();
         allSequences = result.sequences || [];
         
-        if (allSequences.length === 0) {
+        // Apply filters
+        let filtered = allSequences;
+        if (selectedList) {
+          filtered = filtered.filter(s => s.list_id === selectedList);
+        }
+        if (selectedStatus) {
+          filtered = filtered.filter(s => s.status === selectedStatus);
+        }
+        
+        if (filtered.length === 0) {
           container.innerHTML = `
             <div class="empty-state">
               <div class="empty-state-icon">🔄</div>
-              <p>No sequences yet</p>
-              <p class="text-sm text-muted">Sequences are automated email series triggered by subscriber actions</p>
-              <button class="btn btn-primary mt-4" onclick="showNewSequenceModal()">Create your first sequence</button>
+              <p>No sequences ${selectedList || selectedStatus ? 'matching filters' : 'yet'}</p>
+              <p class="text-sm text-muted">Use MCP tools to create sequences</p>
             </div>
           `;
           return;
@@ -84,30 +136,41 @@
               <tr>
                 <th>Name</th>
                 <th>Status</th>
+                <th>List</th>
                 <th>Trigger</th>
                 <th>Steps</th>
-                <th>Active</th>
+                <th>Enrolled</th>
                 <th>Completed</th>
-                <th></th>
               </tr>
             </thead>
             <tbody>
-              ${allSequences.map(seq => `
+              ${filtered.map(seq => `
                 <tr>
                   <td>
                     <div class="sequence-name">${escapeHtml(seq.name)}</div>
                     ${seq.description ? `<div class="list-meta">${escapeHtml(seq.description)}</div>` : ''}
                   </td>
                   <td>
-                    <span class="status-dot ${seq.status || 'draft'}"></span>
-                    ${seq.status || 'draft'}
+                    <span class="status-badge status-${seq.status || 'draft'}">
+                      <span class="status-dot ${seq.status || 'draft'}"></span>
+                      ${seq.status || 'draft'}
+                    </span>
                   </td>
-                  <td class="text-sm">${seq.trigger_type || 'subscribe'}</td>
-                  <td><strong>${seq.step_count || 0}</strong></td>
-                  <td>${seq.active_enrollments || 0}</td>
-                  <td>${seq.completed_enrollments || 0}</td>
                   <td>
-                    <button class="btn btn-ghost btn-sm" onclick="viewSequence('${seq.id}')">View</button>
+                    ${seq.list_id ? `
+                      <a href="lists.html?id=${seq.list_id}" class="text-accent text-sm">${escapeHtml(seq.list_name || 'View')}</a>
+                    ` : '-'}
+                  </td>
+                  <td>
+                    <span class="badge badge-default">${seq.trigger_type || 'subscribe'}</span>
+                    ${seq.trigger_value ? `<div class="text-xs text-muted">${escapeHtml(seq.trigger_value)}</div>` : ''}
+                  </td>
+                  <td><strong>${seq.step_count || 0}</strong> steps</td>
+                  <td>
+                    <span class="text-info">${seq.active_enrollments || 0}</span> active
+                  </td>
+                  <td>
+                    <span class="text-success">${seq.completed_enrollments || 0}</span> done
                   </td>
                 </tr>
               `).join('')}
@@ -119,12 +182,18 @@
       }
     }
     
-    function showNewSequenceModal() {
-      alert('Sequence editor coming soon - use MCP tools for now');
-    }
-    
-    function viewSequence(id) {
-      alert('Sequence detail view coming soon');
+    function applyFilters() {
+      selectedList = document.getElementById('list-filter').value;
+      selectedStatus = document.getElementById('status-filter').value;
+      
+      // Update URL without reload
+      const params = new URLSearchParams();
+      if (selectedList) params.set('list', selectedList);
+      if (selectedStatus) params.set('status', selectedStatus);
+      const newUrl = params.toString() ? `sequences.html?${params}` : 'sequences.html';
+      history.replaceState(null, '', newUrl);
+      
+      loadSequences();
     }
     
     function escapeHtml(text) {
@@ -134,5 +203,24 @@
       return div.innerHTML;
     }
   </script>
+  
+  <style>
+    .form-select {
+      padding: var(--space-2) var(--space-3);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+      min-width: 150px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+    }
+    .font-medium { font-weight: var(--font-medium); }
+  </style>
 </body>
 </html>
