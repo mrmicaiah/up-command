@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Helm - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="helm.css">
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('helm', { showThread: true });
+      main.innerHTML = `
+        <header class="helm-header">
+          <h1 class="helm-title">⚓ Helm</h1>
+          <p class="helm-subtitle">Task management & sprint planning</p>
+          <nav class="helm-nav">
+            <a href="index.html" class="helm-nav-item active">Overview</a>
+            <a href="tasks.html" class="helm-nav-item">Tasks</a>
+            <a href="sprint.html" class="helm-nav-item">Sprint</a>
+            <a href="backlog.html" class="helm-nav-item">Backlog</a>
+            <a href="routines.html" class="helm-nav-item">Routines</a>
+          </nav>
+        </header>
+        
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value" id="stat-open">-</div><div class="stat-label">Open Tasks</div></div>
+          <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-value text-accent" id="stat-active">-</div><div class="stat-label">Active Now</div></div>
+          <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value text-success" id="stat-done">-</div><div class="stat-label">Done Today</div></div>
+          <div class="stat-card"><div class="stat-icon">🏃</div><div class="stat-value text-info" id="stat-sprint">-</div><div class="stat-label">Sprint Progress</div></div>
+        </div>
+        
+        <div class="main-grid">
+          <div class="left-column">
+            <div class="section-card">
+              <div class="section-header">
+                <h2 class="section-title">🎯 Active Tasks</h2>
+                <a href="tasks.html?filter=active" class="text-accent text-sm">View All →</a>
+              </div>
+              <div class="task-list" id="active-tasks"><div class="loading-state"><div class="spinner spinner-sm"></div><span>Loading...</span></div></div>
+            </div>
+            
+            <div class="section-card">
+              <div class="section-header"><h2 class="section-title">⚡ Quick Actions</h2></div>
+              <div class="quick-actions">
+                <div class="quick-action" onclick="showAddTaskModal()"><span class="quick-action-icon">➕</span><span class="quick-action-label">Add Task</span></div>
+                <div class="quick-action" onclick="location.href='sprint.html'"><span class="quick-action-icon">🏃</span><span class="quick-action-label">Sprint</span></div>
+                <div class="quick-action" onclick="location.href='backlog.html'"><span class="quick-action-icon">📚</span><span class="quick-action-label">Backlog</span></div>
+              </div>
+            </div>
+            
+            <div class="section-card">
+              <div class="section-header"><h2 class="section-title">📅 Coming Up</h2></div>
+              <div class="task-list" id="coming-up"><div class="loading-state"><div class="spinner spinner-sm"></div><span>Loading...</span></div></div>
+            </div>
+          </div>
+          
+          <div class="right-column">
+            <div class="sprint-card" id="sprint-card"><div class="loading-state"><div class="spinner spinner-sm"></div><span>Loading sprint...</span></div></div>
+            
+            <div class="section-card">
+              <div class="section-header">
+                <h2 class="section-title">🔄 Today's Routines</h2>
+                <a href="routines.html" class="text-accent text-sm">Manage →</a>
+              </div>
+              <div id="routines-list"><div class="loading-state"><div class="spinner spinner-sm"></div><span>Loading...</span></div></div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      await loadHelmData();
+    });
+    
+    async function loadHelmData() {
+      await Promise.all([loadStats(), loadActiveTasks(), loadComingUp(), loadSprintCard(), loadRoutines()]);
+    }
+    
+    async function loadStats() {
+      try {
+        const [openRes, activeRes] = await Promise.all([
+          Tasks.list({ status: 'open' }),
+          Tasks.list({ status: 'open', is_active: true })
+        ]);
+        document.getElementById('stat-open').textContent = openRes.data?.length || 0;
+        document.getElementById('stat-active').textContent = activeRes.data?.length || 0;
+        
+        const today = new Date().toISOString().split('T')[0];
+        const doneRes = await Tasks.list({ status: 'done', completed_after: today });
+        document.getElementById('stat-done').textContent = doneRes.data?.length || 0;
+        
+        const sprint = await Sprints.current();
+        if (sprint?.data) {
+          const tasks = sprint.data.tasks || [];
+          const done = tasks.filter(t => t.status === 'done').length;
+          document.getElementById('stat-sprint').textContent = `${done}/${tasks.length}`;
+        } else {
+          document.getElementById('stat-sprint').textContent = 'N/A';
+        }
+      } catch (err) {
+        console.error('Stats error:', err);
+      }
+    }
+    
+    async function loadActiveTasks() {
+      const container = document.getElementById('active-tasks');
+      try {
+        const res = await Tasks.list({ status: 'open', is_active: true, limit: 7 });
+        const tasks = res.data || [];
+        if (tasks.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>No active tasks</p><button class="btn btn-secondary btn-sm mt-3" onclick="showAddTaskModal()">Add Task</button></div>';
+          return;
+        }
+        container.innerHTML = tasks.map(t => renderTaskItem(t)).join('');
+      } catch (err) {
+        container.innerHTML = '<p class="text-danger p-4">Failed to load</p>';
+      }
+    }
+    
+    async function loadComingUp() {
+      const container = document.getElementById('coming-up');
+      try {
+        const res = await Tasks.list({ status: 'open', has_due_date: true, limit: 5 });
+        const tasks = (res.data || []).filter(t => t.due_date);
+        if (tasks.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>No upcoming deadlines</p></div>';
+          return;
+        }
+        container.innerHTML = tasks.slice(0, 5).map(t => renderTaskItem(t, true)).join('');
+      } catch (err) {
+        container.innerHTML = '<p class="text-danger p-4">Failed to load</p>';
+      }
+    }
+    
+    async function loadSprintCard() {
+      const container = document.getElementById('sprint-card');
+      try {
+        const res = await Sprints.current();
+        if (!res?.data) {
+          container.innerHTML = `
+            <div class="sprint-header"><span class="sprint-title">🏃 No Active Sprint</span></div>
+            <p class="text-muted text-sm mb-4">Start a sprint to track your goals.</p>
+            <button class="btn btn-primary btn-sm" onclick="location.href='sprint.html'">Create Sprint</button>
+          `;
+          return;
+        }
+        const s = res.data;
+        const tasks = s.tasks || [];
+        const done = tasks.filter(t => t.status === 'done').length;
+        const progress = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
+        const daysLeft = Math.ceil((new Date(s.end_date) - new Date()) / 86400000);
+        
+        container.innerHTML = `
+          <div class="sprint-header">
+            <span class="sprint-title">🏃 ${escapeHtml(s.name)}</span>
+            <span class="sprint-dates">${daysLeft} days left</span>
+          </div>
+          <div class="sprint-progress">
+            <div class="progress-bar-bg"><div class="progress-bar-fill" style="width: ${progress}%"></div></div>
+          </div>
+          <div class="sprint-stats">
+            <div><div class="sprint-stat-value">${done}</div><div class="sprint-stat-label">Done</div></div>
+            <div><div class="sprint-stat-value">${tasks.length - done}</div><div class="sprint-stat-label">Remaining</div></div>
+            <div><div class="sprint-stat-value">${progress}%</div><div class="sprint-stat-label">Progress</div></div>
+          </div>
+        `;
+      } catch (err) {
+        container.innerHTML = '<p class="text-danger p-4">Failed to load sprint</p>';
+      }
+    }
+    
+    async function loadRoutines() {
+      const container = document.getElementById('routines-list');
+      try {
+        const res = await Tasks.list({ is_recurring: true, limit: 10 });
+        const routines = res.data || [];
+        if (routines.length === 0) {
+          container.innerHTML = '<div class="empty-state"><p>No routines set up</p><a href="routines.html" class="btn btn-secondary btn-sm mt-3">Add Routine</a></div>';
+          return;
+        }
+        container.innerHTML = routines.slice(0, 5).map(r => `
+          <div class="routine-item">
+            <div class="routine-checkbox ${r.completed_today ? 'done' : ''}" onclick="toggleRoutine('${r.id}')"></div>
+            <span class="routine-text ${r.completed_today ? 'text-muted' : ''}">${escapeHtml(r.text)}</span>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = '<p class="text-danger p-4">Failed to load</p>';
+      }
+    }
+    
+    function renderTaskItem(task, showDue = false) {
+      return `
+        <div class="task-item" onclick="openTask('${task.id}')">
+          <div class="task-checkbox" onclick="event.stopPropagation(); completeTask('${task.id}')"></div>
+          <div class="task-priority priority-${task.priority || 3}"><div class="priority-dot"></div></div>
+          <div class="task-content">
+            <div class="task-text">${escapeHtml(task.text)}</div>
+            <div class="task-meta">
+              ${task.project ? `<span class="text-accent">${escapeHtml(task.project)}</span>` : ''}
+              ${showDue && task.due_date ? `<span>Due ${formatDate(task.due_date)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function completeTask(id) {
+      try {
+        await Tasks.complete(id);
+        await Promise.all([loadStats(), loadActiveTasks(), loadComingUp(), loadSprintCard()]);
+      } catch (err) {
+        alert('Failed to complete task');
+      }
+    }
+    
+    async function toggleRoutine(id) {
+      try {
+        await Tasks.complete(id);
+        await loadRoutines();
+      } catch (err) {
+        alert('Failed to update routine');
+      }
+    }
+    
+    function openTask(id) { location.href = `tasks.html?task=${id}`; }
+    function showAddTaskModal() { location.href = 'tasks.html?action=add'; }
+    function escapeHtml(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    function formatDate(d) {
+      const date = new Date(d), today = new Date();
+      if (date.toDateString() === today.toDateString()) return 'today';
+      const tom = new Date(today); tom.setDate(tom.getDate() + 1);
+      if (date.toDateString() === tom.toDateString()) return 'tomorrow';
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  </script>
+</body>
+</html>
