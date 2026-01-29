@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home - UP Command</title>
+  <link rel="stylesheet" href="../../shared/styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar"></aside>
+    
+    <main class="main-content">
+      <header class="mb-4">
+        <h1>⚡ Command Center</h1>
+        <p class="text-muted">Welcome back. Here's your overview.</p>
+      </header>
+      
+      <!-- Quick Stats -->
+      <div class="stats-grid" style="
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      ">
+        <div class="card">
+          <p class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Active Tasks</p>
+          <p id="stat-active" class="text-gold" style="font-size: 2rem; font-weight: 600;">-</p>
+        </div>
+        <div class="card">
+          <p class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Completed Today</p>
+          <p id="stat-completed" class="text-success" style="font-size: 2rem; font-weight: 600;">-</p>
+        </div>
+        <div class="card">
+          <p class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Handoff Queue</p>
+          <p id="stat-handoff" style="font-size: 2rem; font-weight: 600;">-</p>
+        </div>
+        <div class="card">
+          <p class="text-muted" style="font-size: 0.75rem; text-transform: uppercase;">Unread Messages</p>
+          <p id="stat-messages" style="font-size: 2rem; font-weight: 600;">-</p>
+        </div>
+      </div>
+      
+      <!-- Two Column Layout -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <!-- Active Tasks -->
+        <div class="card">
+          <div class="flex justify-between items-center mb-2">
+            <h3>⚓ Active Tasks</h3>
+            <a href="../helm/" class="text-gold" style="font-size: 0.875rem;">View All →</a>
+          </div>
+          <div id="active-tasks">
+            <div class="flex items-center gap-2" style="color: var(--text-muted);">
+              <div class="spinner"></div>
+              <span>Loading...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div id="mini-thread"></div>
+      </div>
+    </main>
+  </div>
+  
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/thread.js"></script>
+  <script>
+    requireAuth(async (user) => {
+      renderNav(window.location.pathname);
+      await loadDashboard();
+    });
+    
+    async function loadDashboard() {
+      // Load stats
+      try {
+        const stats = await apiGet('/api/stats');
+        document.getElementById('stat-active').textContent = stats.active_tasks || 0;
+        document.getElementById('stat-completed').textContent = stats.completed_today || 0;
+        document.getElementById('stat-handoff').textContent = stats.handoff_pending || 0;
+        document.getElementById('stat-messages').textContent = stats.unread_messages || 0;
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+      }
+      
+      // Load active tasks
+      try {
+        const tasks = await Tasks.list({ status: 'open', is_active: true, limit: 5 });
+        const container = document.getElementById('active-tasks');
+        
+        if (!tasks.data || tasks.data.length === 0) {
+          container.innerHTML = '<p class="text-muted">No active tasks</p>';
+        } else {
+          container.innerHTML = tasks.data.map(task => `
+            <div style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+              <p style="font-size: 0.875rem;">${task.text}</p>
+              <p class="text-muted" style="font-size: 0.75rem;">${task.project || 'No project'}</p>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        document.getElementById('active-tasks').innerHTML = '<p class="text-error">Failed to load tasks</p>';
+      }
+      
+      // Load mini thread
+      renderMiniThread('mini-thread');
+    }
+  </script>
+</body>
+</html>
