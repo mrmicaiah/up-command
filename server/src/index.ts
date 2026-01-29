@@ -145,6 +145,7 @@ async function listTasks(env: Env, userId: string, url: URL) {
   const project = url.searchParams.get('project');
   const isActive = url.searchParams.get('is_active');
   const isRecurring = url.searchParams.get('is_recurring');
+  const completedAfter = url.searchParams.get('completed_after');
   const limit = parseInt(url.searchParams.get('limit') || '50');
 
   let sql = `SELECT * FROM tasks WHERE user_id = ?`;
@@ -157,6 +158,7 @@ async function listTasks(env: Env, userId: string, url: URL) {
   if (isActive === 'false') { sql += ` AND is_active = 0`; }
   if (isRecurring === 'true') { sql += ` AND recurrence IS NOT NULL AND recurrence != ''`; }
   if (isRecurring === 'false') { sql += ` AND (recurrence IS NULL OR recurrence = '')`; }
+  if (completedAfter) { sql += ` AND date(completed_at) >= ?`; params.push(completedAfter); }
 
   sql += ` ORDER BY is_active DESC, priority ASC, created_at DESC LIMIT ?`;
   params.push(limit);
