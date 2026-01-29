@@ -67,6 +67,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       if (segments.length === 2 && segments[1] !== 'stats') {
         if (method === 'GET') return json(await getTask(env, segments[1]), cors);
         if (method === 'PUT') return json(await updateTask(env, segments[1], await request.json()), cors);
+        if (method === 'DELETE') return json(await deleteTask(env, userId, segments[1]), cors);
       }
       if (segments[2] === 'complete' && method === 'POST') return json(await completeTask(env, segments[1]), cors);
       if (segments.length === 1) {
@@ -206,7 +207,7 @@ async function createTask(env: Env, userId: string, data: any) {
 async function updateTask(env: Env, taskId: string, data: any) {
   const fields: string[] = [], params: any[] = [];
   for (const [key, value] of Object.entries(data)) {
-    if (['text', 'priority', 'project', 'category', 'due_date', 'notes', 'is_active', 'recurrence'].includes(key)) {
+    if (['text', 'priority', 'project', 'category', 'due_date', 'notes', 'is_active', 'recurrence', 'status'].includes(key)) {
       fields.push(`${key} = ?`); params.push(value);
     }
   }
@@ -214,6 +215,20 @@ async function updateTask(env: Env, taskId: string, data: any) {
   params.push(taskId);
   await env.DB.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = ? OR id LIKE ?`).bind(...params, `%${taskId}%`).run();
   return { success: true };
+}
+
+async function deleteTask(env: Env, userId: string, taskId: string) {
+  // Delete the task - this removes the routine definition
+  // Past completions are tracked by completed_at timestamps on individual task records
+  // For recurring tasks, this stops future occurrences
+  const result = await env.DB.prepare(
+    `DELETE FROM tasks WHERE (id = ? OR id LIKE ?) AND user_id = ?`
+  ).bind(taskId, `%${taskId}%`, userId).run();
+  
+  return { 
+    success: true, 
+    deleted: result.meta?.changes || 0 
+  };
 }
 
 async function completeTask(env: Env, taskId: string) {
