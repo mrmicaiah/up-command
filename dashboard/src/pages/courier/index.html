@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Courier - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <style>
+    /* Page-specific styles */
+    .page-header {
+      margin-bottom: var(--space-8);
+    }
+    
+    .page-title {
+      font-family: var(--font-display);
+      font-size: var(--text-4xl);
+      font-weight: var(--font-semibold);
+      margin-bottom: var(--space-2);
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    
+    .page-subtitle {
+      color: var(--text-secondary);
+      font-size: var(--text-lg);
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-8);
+    }
+    
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-5);
+      transition: all var(--transition-fast);
+    }
+    
+    .stat-card:hover {
+      border-color: var(--border-light);
+      transform: translateY(-2px);
+    }
+    
+    .stat-label {
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-2);
+    }
+    
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+    }
+    
+    .stat-change {
+      font-size: var(--text-xs);
+      margin-top: var(--space-1);
+    }
+    
+    .quick-actions {
+      display: flex;
+      gap: var(--space-3);
+      margin-bottom: var(--space-8);
+    }
+    
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-6);
+    }
+    
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+    
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .campaign-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+      cursor: pointer;
+    }
+    
+    .campaign-item:hover {
+      background: var(--bg-hover);
+    }
+    
+    .campaign-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: var(--text-lg);
+    }
+    
+    .campaign-icon.draft { background: var(--bg-hover); }
+    .campaign-icon.scheduled { background: var(--info-muted); }
+    .campaign-icon.sent { background: var(--success-muted); }
+    
+    .campaign-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .campaign-title {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+      margin-bottom: var(--space-1);
+    }
+    
+    .campaign-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .campaign-stats {
+      display: flex;
+      gap: var(--space-3);
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+    
+    .list-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+      cursor: pointer;
+    }
+    
+    .list-item:hover {
+      background: var(--bg-hover);
+    }
+    
+    .list-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      background: var(--accent-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .list-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .list-name {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+    
+    .list-meta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .sequence-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+      cursor: pointer;
+    }
+    
+    .sequence-item:hover {
+      background: var(--bg-hover);
+    }
+    
+    .sequence-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    
+    .sequence-status.active { background: var(--success); }
+    .sequence-status.paused { background: var(--warning); }
+    .sequence-status.draft { background: var(--text-muted); }
+    
+    .sequence-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .sequence-name {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+    
+    .sequence-meta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8);
+      color: var(--text-muted);
+    }
+    
+    .empty-state-icon {
+      font-size: 2rem;
+      margin-bottom: var(--space-3);
+    }
+    
+    .loading-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-4);
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Load shared JS modules -->
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    // Courier uses a DIFFERENT backend
+    const COURIER_API = 'https://email-bot-server.micaiah-tasks.workers.dev';
+    
+    // Courier-specific API helpers
+    async function courierApi(endpoint, options = {}) {
+      const url = `${COURIER_API}${endpoint}`;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+      };
+      
+      try {
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error || `HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        if (!text) return { success: true };
+        return JSON.parse(text);
+      } catch (err) {
+        console.error('Courier API Error:', err);
+        throw err;
+      }
+    }
+    
+    const CourierAPI = {
+      stats: () => courierApi('/api/stats'),
+      lists: () => courierApi('/api/lists'),
+      campaigns: (listId) => courierApi(`/api/campaigns${listId ? `?list_id=${listId}` : ''}`),
+      sequences: (listId) => courierApi(`/api/sequences${listId ? `?list_id=${listId}` : ''}`),
+      subscribers: (listId, limit = 50) => courierApi(`/api/subscribers?list_id=${listId}&limit=${limit}`)
+    };
+    
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('courier', { showThread: false });
+      main.innerHTML = renderCourierPage(user);
+      
+      await loadCourierData();
+    });
+    
+    function renderCourierPage(user) {
+      return `
+        <!-- Page Header -->
+        <header class="page-header">
+          <h1 class="page-title">📧 Courier</h1>
+          <p class="page-subtitle">Email marketing and automation</p>
+        </header>
+        
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+          <button class="btn btn-primary" onclick="showNewCampaignModal()">
+            ✉️ New Campaign
+          </button>
+          <button class="btn btn-secondary" onclick="showNewListModal()">
+            📋 New List
+          </button>
+          <button class="btn btn-secondary" onclick="showNewSequenceModal()">
+            🔄 New Sequence
+          </button>
+        </div>
+        
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Subscribers</div>
+            <div class="stat-value text-accent" id="stat-subscribers">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Email Lists</div>
+            <div class="stat-value" id="stat-lists">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Campaigns Sent</div>
+            <div class="stat-value text-success" id="stat-campaigns">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Open Rate</div>
+            <div class="stat-value text-info" id="stat-open-rate">
+              <div class="spinner spinner-sm"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Main Content Grid -->
+        <div class="main-grid">
+          <!-- Email Lists -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">📋 Email Lists</h2>
+              <button class="btn btn-ghost btn-sm" onclick="showNewListModal()">+ Add</button>
+            </div>
+            <div id="lists-container">
+              <div class="loading-placeholder">
+                <div class="spinner spinner-sm"></div>
+                <span>Loading lists...</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Active Sequences -->
+          <div class="section-card">
+            <div class="section-header">
+              <h2 class="section-title">🔄 Active Sequences</h2>
+              <button class="btn btn-ghost btn-sm" onclick="showNewSequenceModal()">+ Add</button>
+            </div>
+            <div id="sequences-container">
+              <div class="loading-placeholder">
+                <div class="spinner spinner-sm"></div>
+                <span>Loading sequences...</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Recent Campaigns -->
+          <div class="section-card" style="grid-column: span 2;">
+            <div class="section-header">
+              <h2 class="section-title">📨 Recent Campaigns</h2>
+              <a href="campaigns.html" class="text-accent text-sm">View All →</a>
+            </div>
+            <div id="campaigns-container">
+              <div class="loading-placeholder">
+                <div class="spinner spinner-sm"></div>
+                <span>Loading campaigns...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function loadCourierData() {
+      await Promise.all([
+        loadStats(),
+        loadLists(),
+        loadSequences(),
+        loadCampaigns()
+      ]);
+    }
+    
+    async function loadStats() {
+      try {
+        const stats = await CourierAPI.stats();
+        
+        document.getElementById('stat-subscribers').textContent = 
+          formatNumber(stats.total_subscribers || 0);
+        document.getElementById('stat-lists').textContent = 
+          stats.total_lists || 0;
+        document.getElementById('stat-campaigns').textContent = 
+          stats.campaigns_sent || 0;
+        document.getElementById('stat-open-rate').textContent = 
+          (stats.avg_open_rate || 0).toFixed(1) + '%';
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+        document.getElementById('stat-subscribers').textContent = '-';
+        document.getElementById('stat-lists').textContent = '-';
+        document.getElementById('stat-campaigns').textContent = '-';
+        document.getElementById('stat-open-rate').textContent = '-';
+      }
+    }
+    
+    async function loadLists() {
+      const container = document.getElementById('lists-container');
+      try {
+        const result = await CourierAPI.lists();
+        const lists = result.lists || [];
+        
+        if (lists.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <p>No email lists yet</p>
+              <button class="btn btn-secondary btn-sm mt-3" onclick="showNewListModal()">
+                Create your first list
+              </button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = lists.slice(0, 5).map(list => `
+          <div class="list-item" onclick="openList('${list.id}')">
+            <div class="list-icon">📧</div>
+            <div class="list-content">
+              <div class="list-name">${escapeHtml(list.name)}</div>
+              <div class="list-meta">
+                ${list.subscriber_count || 0} subscribers
+                ${list.status === 'paused' ? ' • <span class="text-warning">Paused</span>' : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load lists:', err);
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load lists</p>`;
+      }
+    }
+    
+    async function loadSequences() {
+      const container = document.getElementById('sequences-container');
+      try {
+        const result = await CourierAPI.sequences();
+        const sequences = result.sequences || [];
+        
+        if (sequences.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🔄</div>
+              <p>No sequences yet</p>
+              <button class="btn btn-secondary btn-sm mt-3" onclick="showNewSequenceModal()">
+                Create a sequence
+              </button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = sequences.slice(0, 5).map(seq => `
+          <div class="sequence-item" onclick="openSequence('${seq.id}')">
+            <div class="sequence-status ${seq.status || 'draft'}"></div>
+            <div class="sequence-content">
+              <div class="sequence-name">${escapeHtml(seq.name)}</div>
+              <div class="sequence-meta">
+                ${seq.step_count || 0} steps • ${seq.trigger_type || 'subscribe'} trigger
+                ${seq.active_enrollments ? ` • ${seq.active_enrollments} active` : ''}
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load sequences:', err);
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load sequences</p>`;
+      }
+    }
+    
+    async function loadCampaigns() {
+      const container = document.getElementById('campaigns-container');
+      try {
+        const result = await CourierAPI.campaigns();
+        const campaigns = result.campaigns || [];
+        
+        if (campaigns.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📨</div>
+              <p>No campaigns yet</p>
+              <button class="btn btn-secondary btn-sm mt-3" onclick="showNewCampaignModal()">
+                Create your first campaign
+              </button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--space-4);">
+            ${campaigns.slice(0, 6).map(campaign => `
+              <div class="campaign-item" onclick="openCampaign('${campaign.id}')">
+                <div class="campaign-icon ${campaign.status || 'draft'}">
+                  ${campaign.status === 'sent' ? '✅' : campaign.status === 'scheduled' ? '📅' : '📝'}
+                </div>
+                <div class="campaign-content">
+                  <div class="campaign-title">${escapeHtml(campaign.subject || campaign.title || 'Untitled')}</div>
+                  <div class="campaign-meta">
+                    <span class="badge badge-${getStatusBadge(campaign.status)}">${campaign.status || 'draft'}</span>
+                    ${campaign.list_name ? `<span>to ${escapeHtml(campaign.list_name)}</span>` : ''}
+                  </div>
+                  ${campaign.status === 'sent' ? `
+                    <div class="campaign-stats mt-2">
+                      <span>📤 ${campaign.sent_count || 0}</span>
+                      <span>👀 ${campaign.open_count || 0} (${campaign.open_rate || 0}%)</span>
+                      <span>🖱️ ${campaign.click_count || 0} (${campaign.click_rate || 0}%)</span>
+                    </div>
+                  ` : `
+                    <div class="campaign-meta mt-2">
+                      ${campaign.scheduled_at ? `Scheduled: ${formatDate(campaign.scheduled_at)}` : `Created: ${formatDate(campaign.created_at)}`}
+                    </div>
+                  `}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } catch (err) {
+        console.error('Failed to load campaigns:', err);
+        container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load campaigns</p>`;
+      }
+    }
+    
+    function getStatusBadge(status) {
+      switch (status) {
+        case 'sent': return 'success';
+        case 'scheduled': return 'info';
+        case 'draft': return 'default';
+        default: return 'default';
+      }
+    }
+    
+    function openList(listId) {
+      window.location.href = `list.html?id=${listId}`;
+    }
+    
+    function openSequence(sequenceId) {
+      window.location.href = `sequence.html?id=${sequenceId}`;
+    }
+    
+    function openCampaign(campaignId) {
+      window.location.href = `campaign.html?id=${campaignId}`;
+    }
+    
+    function showNewCampaignModal() {
+      // TODO: Implement modal
+      alert('New campaign modal coming soon!');
+    }
+    
+    function showNewListModal() {
+      // TODO: Implement modal
+      alert('New list modal coming soon!');
+    }
+    
+    function showNewSequenceModal() {
+      // TODO: Implement modal
+      alert('New sequence modal coming soon!');
+    }
+    
+    function formatNumber(num) {
+      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+      if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+      return num.toString();
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = now - date;
+      const days = Math.floor(diff / 86400000);
+      
+      if (days === 0) return 'Today';
+      if (days === 1) return 'Yesterday';
+      if (days < 7) return `${days} days ago`;
+      
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
