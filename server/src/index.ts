@@ -93,7 +93,12 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       }
     }
 
-    // THREAD (Activity Feed)
+    // ACTIVITY (for Thread page - uses 'types' param and returns 'data' array)
+    if (segments[0] === 'activity') {
+      if (segments.length === 1 && method === 'GET') return json(await getActivityForDashboard(env, userId, url), cors);
+    }
+
+    // THREAD (Activity Feed - legacy endpoint)
     if (segments[0] === 'thread') {
       if (segments[1] === 'unread-count' && method === 'GET') return json(await getUnreadCount(env, userId), cors);
       if (segments.length === 1 && method === 'GET') return json(await getActivityFeed(env, userId, url), cors);
@@ -448,7 +453,194 @@ async function updateSprint(env: Env, sprintId: string, data: any) {
 }
 
 // ==================
-// THREAD (Unified Activity Feed)
+// ACTIVITY FEED (for Dashboard Thread page)
+// ==================
+interface DashboardActivityItem {
+  id: string;
+  type: string;
+  user: string;
+  created_at: string;
+  summary?: string;
+  narrative?: string;
+  full_recap?: string;
+  project?: string;
+  shipped?: string[];
+  unread?: boolean;
+}
+
+async function getActivityForDashboard(env: Env, userId: string, url: URL) {
+  const limit = parseInt(url.searchParams.get('limit') || '30');
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+  const typesParam = url.searchParams.get('types'); // comma-separated types
+  const search = url.searchParams.get('search');
+  
+  // Parse types filter
+  const allowedTypes = typesParam ? typesParam.split(',').map(t => t.trim()) : null;
+
+  const items: DashboardActivityItem[] = [];
+
+  // Check-ins
+  if (!allowedTypes || allowedTypes.includes('checkin')) {
+    try {
+      let sql = `SELECT id, user_id, project_name, thread_summary, full_recap, created_at FROM check_ins WHERE user_id = ?`;
+      const params: any[] = [userId];
+      if (search) { sql += ` AND (thread_summary LIKE ? OR full_recap LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+      sql += ` ORDER BY created_at DESC LIMIT ?`;
+      params.push(limit * 2); // Get more since we'll merge and limit later
+      
+      const checkins = await env.DB.prepare(sql).bind(...params).all();
+      (checkins.results || []).forEach((r: any) => items.push({
+        id: r.id,
+        type: 'checkin',
+        user: r.user_id === userId ? 'You' : r.user_id,
+        created_at: r.created_at,
+        summary: r.thread_summary,
+        full_recap: r.full_recap,
+        project: r.project_name
+      }));
+    } catch (e) { console.error('checkins error:', e); }
+  }
+
+  // Work Logs
+  if (!allowedTypes || allowedTypes.includes('worklog')) {
+    try {
+      let sql = `SELECT id, user_id, narrative, shipped, created_at FROM work_logs WHERE user_id = ?`;
+      const params: any[] = [userId];
+      if (search) { sql += ` AND narrative LIKE ?`; params.push(`%${search}%`); }
+      sql += ` ORDER BY created_at DESC LIMIT ?`;
+      params.push(limit * 2);
+      
+      const worklogs = await env.DB.prepare(sql).bind(...params).all();
+      (worklogs.results || []).forEach((r: any) => {
+        let shipped: string[] = [];
+        try { shipped = r.shipped ? JSON.parse(r.shipped) : []; } catch (e) {}
+        items.push({
+          id: r.id,
+          type: 'worklog',
+          user: r.user_id === userId ? 'You' : r.user_id,
+          created_at: r.created_at,
+          narrative: r.narrative,
+          shipped
+        });
+      });
+    } catch (e) { console.error('worklogs error:', e); }
+  }
+
+  // Task completions
+  if (!allowedTypes || allowedTypes.includes('task_complete')) {
+    try {
+      let sql = `SELECT id, user_id, text, project, category, completed_at FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at IS NOT NULL`;
+      const params: any[] = [userId];
+      if (search) { sql += ` AND text LIKE ?`; params.push(`%${search}%`); }
+      sql += ` ORDER BY completed_at DESC LIMIT ?`;
+      params.push(limit * 2);
+      
+      const tasks = await env.DB.prepare(sql).bind(...params).all();
+      (tasks.results || []).forEach((r: any) => items.push({
+        id: r.id,
+        type: 'task_complete',
+        user: r.user_id === userId ? 'You' : r.user_id,
+        created_at: r.completed_at,
+        summary: r.text,
+        project: r.project || r.category
+      }));
+    } catch (e) { console.error('tasks error:', e); }
+  }
+
+  // Messages
+  if (!allowedTypes || allowedTypes.includes('message')) {
+    try {
+      let sql = `SELECT id, from_user, to_user, content, read_at, created_at FROM messages WHERE to_user = ?`;
+      const params: any[] = [userId];
+      if (search) { sql += ` AND content LIKE ?`; params.push(`%${search}%`); }
+      sql += ` ORDER BY created_at DESC LIMIT ?`;
+      params.push(limit * 2);
+      
+      const messages = await env.DB.prepare(sql).bind(...params).all();
+      (messages.results || []).forEach((r: any) => items.push({
+        id: r.id,
+        type: 'message',
+        user: r.from_user,
+        created_at: r.created_at,
+        summary: r.content,
+        unread: !r.read_at
+      }));
+    } catch (e) { console.error('messages error:', e); }
+  }
+
+  // Handoffs (created, completed, blocked, claimed)
+  const handoffTypes = ['handoff_created', 'handoff_complete', 'handoff_blocked', 'handoff_claimed'];
+  if (!allowedTypes || handoffTypes.some(t => allowedTypes.includes(t))) {
+    try {
+      let sql = `SELECT id, instruction, output_summary, project_name, status, created_by, claimed_by, created_at, claimed_at, completed_at FROM handoff_queue WHERE created_by = ? OR claimed_by = ?`;
+      const params: any[] = [userId, userId];
+      if (search) { sql += ` AND (instruction LIKE ? OR output_summary LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
+      sql += ` ORDER BY created_at DESC LIMIT ?`;
+      params.push(limit * 2);
+      
+      const handoffs = await env.DB.prepare(sql).bind(...params).all();
+      (handoffs.results || []).forEach((r: any) => {
+        // Add different activity types based on status
+        if (r.status === 'complete' && r.completed_at) {
+          if (!allowedTypes || allowedTypes.includes('handoff_complete')) {
+            items.push({
+              id: r.id + '-complete',
+              type: 'handoff_complete',
+              user: r.claimed_by === userId ? 'You' : r.claimed_by,
+              created_at: r.completed_at,
+              summary: r.output_summary || r.instruction,
+              project: r.project_name
+            });
+          }
+        } else if (r.status === 'blocked') {
+          if (!allowedTypes || allowedTypes.includes('handoff_blocked')) {
+            items.push({
+              id: r.id + '-blocked',
+              type: 'handoff_blocked',
+              user: r.claimed_by === userId ? 'You' : r.claimed_by,
+              created_at: r.claimed_at || r.created_at,
+              summary: r.instruction,
+              project: r.project_name
+            });
+          }
+        } else if (r.claimed_by && r.claimed_at) {
+          if (!allowedTypes || allowedTypes.includes('handoff_claimed')) {
+            items.push({
+              id: r.id + '-claimed',
+              type: 'handoff_claimed',
+              user: r.claimed_by === userId ? 'You' : r.claimed_by,
+              created_at: r.claimed_at,
+              summary: r.instruction,
+              project: r.project_name
+            });
+          }
+        }
+        // Always add creation event
+        if (!allowedTypes || allowedTypes.includes('handoff_created')) {
+          items.push({
+            id: r.id + '-created',
+            type: 'handoff_created',
+            user: r.created_by === userId ? 'You' : r.created_by,
+            created_at: r.created_at,
+            summary: r.instruction,
+            project: r.project_name
+          });
+        }
+      });
+    } catch (e) { console.error('handoffs error:', e); }
+  }
+
+  // Sort by created_at descending
+  items.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  // Apply offset and limit
+  const paginatedItems = items.slice(offset, offset + limit);
+
+  return { data: paginatedItems };
+}
+
+// ==================
+// THREAD (Unified Activity Feed - legacy)
 // ==================
 interface ActivityItem {
   id: string;
