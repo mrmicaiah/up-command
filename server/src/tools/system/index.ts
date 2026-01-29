@@ -1,42 +1,25 @@
 /**
- * System Tools - Settings, Connections, Admin
+ * System Tools - Settings, Connections, Admin utilities
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolContext } from '../../types.js';
+import { registerNoteTools } from './notes.js';
+import { registerSkillTools } from './skills.js';
 
 export function registerSystemTools(server: McpServer, ctx: ToolContext): void {
-  // Connection management
-  // connect_service
-  // disconnect_service
-  // connection_status
-  
-  // User info
-  // who_am_i
-  // get_stats
-  // get_challenges
-  
-  // Skills
-  // list_skills
-  // get_skill
-  // save_skill
-  // delete_skill
-  
   // Notes & Ideas
-  // add_note
-  // add_idea
-  // list_ideas
+  registerNoteTools(server, ctx);
   
-  // Authors
-  // author_list
-  // author_get
-  // author_create
-  // author_update
-  // author_delete
+  // Skills management
+  registerSkillTools(server, ctx);
   
-  // Launch docs
-  // list_launch_docs
-  // view_launch_doc
-  // add_launch_doc
-  // update_launch_doc
+  // Future: Connection management
+  // connect_service, disconnect_service, connection_status
+  
+  // Future: User info
+  // who_am_i, get_stats, get_challenges
+  
+  // Future: Launch docs
+  // list_launch_docs, view_launch_doc, add_launch_doc
 }
