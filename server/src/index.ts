@@ -75,6 +75,11 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       }
     }
 
+    // ROUTINES - dedicated endpoint with proper logic
+    if (segments[0] === 'routines') {
+      if (method === 'GET') return json(await getRoutines(env, userId), cors);
+    }
+
     // SPRINTS
     if (segments[0] === 'sprints') {
       if (segments[1] === 'current' && method === 'GET') return json(await getCurrentSprint(env, userId), cors);
@@ -194,14 +199,14 @@ async function getTask(env: Env, taskId: string) {
 async function createTask(env: Env, userId: string, data: any) {
   const id = `task-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO tasks (id, user_id, text, priority, project, category, due_date, notes, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userId, data.text, data.priority || 3, data.project || null, data.category || null, data.due_date || null, data.notes || null, data.is_active ? 1 : 0, now).run();
+  await env.DB.prepare(`INSERT INTO tasks (id, user_id, text, priority, project, category, due_date, notes, is_active, recurrence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userId, data.text, data.priority || 3, data.project || null, data.category || null, data.due_date || null, data.notes || null, data.is_active ? 1 : 0, data.recurrence || null, now).run();
   return { id, success: true };
 }
 
 async function updateTask(env: Env, taskId: string, data: any) {
   const fields: string[] = [], params: any[] = [];
   for (const [key, value] of Object.entries(data)) {
-    if (['text', 'priority', 'project', 'category', 'due_date', 'notes', 'is_active'].includes(key)) {
+    if (['text', 'priority', 'project', 'category', 'due_date', 'notes', 'is_active', 'recurrence'].includes(key)) {
       fields.push(`${key} = ?`); params.push(value);
     }
   }
@@ -215,6 +220,106 @@ async function completeTask(env: Env, taskId: string) {
   const now = new Date().toISOString();
   await env.DB.prepare(`UPDATE tasks SET status = 'done', completed_at = ?, is_active = 0 WHERE id = ? OR id LIKE ?`).bind(now, taskId, `%${taskId}%`).run();
   return { success: true };
+}
+
+// ==================
+// ROUTINES HANDLER
+// ==================
+async function getRoutines(env: Env, userId: string) {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+  const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  const todayName = dayNames[dayOfWeek];
+  
+  // Get all recurring tasks
+  const result = await env.DB.prepare(
+    `SELECT * FROM tasks WHERE user_id = ? AND recurrence IS NOT NULL AND recurrence != '' ORDER BY text`
+  ).bind(userId).all();
+  
+  const allRoutines = result.results || [];
+  
+  // Helper to check if routine is due today
+  function isDueToday(recurrence: string): boolean {
+    if (!recurrence) return false;
+    const r = recurrence.toLowerCase();
+    
+    if (r === 'daily') return true;
+    if (r === 'weekdays' && dayOfWeek >= 1 && dayOfWeek <= 5) return true;
+    if (r === 'weekly') return true; // Weekly tasks are always "available"
+    if (r === 'biweekly') return true; // Biweekly tasks show up, rely on completion tracking
+    if (r === 'monthly') return true; // Monthly tasks show up
+    if (r === 'yearly') return true; // Yearly tasks show up
+    
+    // Specific day: 'mon', 'tue', etc.
+    if (r === todayName) return true;
+    
+    // Multiple days: 'mon,wed,fri'
+    if (r.includes(',')) {
+      const days = r.split(',').map(d => d.trim().toLowerCase());
+      return days.includes(todayName);
+    }
+    
+    return false;
+  }
+  
+  // Helper to check if completed today
+  function isCompletedToday(completedAt: string | null): boolean {
+    if (!completedAt) return false;
+    return completedAt.split('T')[0] === todayStr;
+  }
+  
+  // Process routines
+  const todayRoutines: any[] = [];
+  let doneToday = 0;
+  let remaining = 0;
+  
+  allRoutines.forEach((routine: any) => {
+    const dueToday = isDueToday(routine.recurrence);
+    const completedToday = isCompletedToday(routine.completed_at);
+    
+    // Add computed fields
+    routine.due_today = dueToday;
+    routine.completed_today = completedToday;
+    
+    if (dueToday) {
+      todayRoutines.push(routine);
+      if (completedToday) {
+        doneToday++;
+      } else {
+        remaining++;
+      }
+    }
+  });
+  
+  // Get completion history for calendar (last 28 days)
+  const historyResult = await env.DB.prepare(
+    `SELECT date(completed_at) as date, COUNT(*) as count 
+     FROM tasks 
+     WHERE user_id = ? 
+       AND recurrence IS NOT NULL AND recurrence != ''
+       AND completed_at IS NOT NULL 
+       AND date(completed_at) >= date('now', '-28 days')
+     GROUP BY date(completed_at)
+     ORDER BY date DESC`
+  ).bind(userId).all();
+  
+  const completionHistory: Record<string, number> = {};
+  (historyResult.results || []).forEach((row: any) => {
+    completionHistory[row.date] = row.count;
+  });
+  
+  return {
+    all: allRoutines,
+    today: todayRoutines,
+    stats: {
+      total: allRoutines.length,
+      doneToday,
+      remaining,
+      todayTotal: todayRoutines.length
+    },
+    completionHistory
+  };
 }
 
 // ==================
