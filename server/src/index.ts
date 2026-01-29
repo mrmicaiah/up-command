@@ -91,6 +91,12 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       if (segments.length === 1 && method === 'GET') return json(await getActivityFeed(env, userId, url), cors);
     }
 
+    // NOTIFICATIONS (stub - returns 0)
+    if (segments[0] === 'notifications') {
+      if (segments[1] === 'unread' && method === 'GET') return json({ count: 0 }, cors);
+      if (segments.length === 1 && method === 'GET') return json({ notifications: [] }, cors);
+    }
+
     // HANDOFF
     if (segments[0] === 'handoff') {
       if (segments[1] === 'projects') {
@@ -179,7 +185,8 @@ async function getTask(env: Env, taskId: string) {
 
 async function createTask(env: Env, userId: string, data: any) {
   const id = `task-${crypto.randomUUID().slice(0, 8)}`;
-  await env.DB.prepare(`INSERT INTO tasks (id, user_id, text, priority, project, category, due_date, notes, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userId, data.text, data.priority || 3, data.project || null, data.category || null, data.due_date || null, data.notes || null, data.is_active ? 1 : 0).run();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO tasks (id, user_id, text, priority, project, category, due_date, notes, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, userId, data.text, data.priority || 3, data.project || null, data.category || null, data.due_date || null, data.notes || null, data.is_active ? 1 : 0, now).run();
   return { id, success: true };
 }
 
@@ -197,7 +204,8 @@ async function updateTask(env: Env, taskId: string, data: any) {
 }
 
 async function completeTask(env: Env, taskId: string) {
-  await env.DB.prepare(`UPDATE tasks SET status = 'done', completed_at = datetime('now'), is_active = 0 WHERE id = ? OR id LIKE ?`).bind(taskId, `%${taskId}%`).run();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE tasks SET status = 'done', completed_at = ?, is_active = 0 WHERE id = ? OR id LIKE ?`).bind(now, taskId, `%${taskId}%`).run();
   return { success: true };
 }
 
@@ -210,20 +218,31 @@ async function listSprints(env: Env, userId: string) {
 }
 
 async function getCurrentSprint(env: Env, userId: string) {
-  const sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(userId).first();
-  if (!sprint) return { sprint: null };
+  try {
+    const sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(userId).first();
+    if (!sprint) return { sprint: null, objectives: [], tasks: [] };
 
-  const [objectives, tasks] = await Promise.all([
-    env.DB.prepare(`SELECT * FROM sprint_objectives WHERE sprint_id = ?`).bind((sprint as any).id).all(),
-    env.DB.prepare(`SELECT t.*, st.objective_id FROM tasks t JOIN sprint_tasks st ON t.id = st.task_id WHERE st.sprint_id = ?`).bind((sprint as any).id).all()
-  ]);
+    // Use 'objectives' table (not sprint_objectives) - matches existing productivity-brain schema
+    const objectives = await env.DB.prepare(`SELECT * FROM objectives WHERE sprint_id = ? ORDER BY sort_order ASC`).bind((sprint as any).id).all();
 
-  return { sprint, objectives: objectives.results || [], tasks: tasks.results || [] };
+    // Tasks are linked via objective_id directly (not through a join table)
+    const tasks = await env.DB.prepare(`SELECT * FROM tasks WHERE user_id = ? AND objective_id IS NOT NULL AND status = 'open'`).bind(userId).all();
+
+    return { 
+      sprint, 
+      objectives: objectives.results || [], 
+      tasks: tasks.results || [] 
+    };
+  } catch (e: any) {
+    console.error('getCurrentSprint error:', e);
+    return { sprint: null, objectives: [], tasks: [], error: e.message };
+  }
 }
 
 async function createSprint(env: Env, userId: string, data: any) {
   const id = `sprint-${crypto.randomUUID().slice(0, 8)}`;
-  await env.DB.prepare(`INSERT INTO sprints (id, user_id, name, end_date) VALUES (?, ?, ?, ?)`).bind(id, userId, data.name, data.end_date).run();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO sprints (id, user_id, name, end_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).bind(id, userId, data.name, data.end_date, now, now).run();
   return { id, success: true };
 }
 
@@ -233,6 +252,7 @@ async function updateSprint(env: Env, sprintId: string, data: any) {
     if (['name', 'end_date', 'status'].includes(key)) { fields.push(`${key} = ?`); params.push(value); }
   }
   if (fields.length === 0) return { error: 'No valid fields' };
+  fields.push(`updated_at = ?`); params.push(new Date().toISOString());
   params.push(sprintId);
   await env.DB.prepare(`UPDATE sprints SET ${fields.join(', ')} WHERE id = ? OR id LIKE ?`).bind(...params, `%${sprintId}%`).run();
   return { success: true };
@@ -307,12 +327,12 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
     } catch (e) { /* table may not exist */ }
   }
 
-  // 4. Handoff tasks completed
+  // 4. Handoff tasks completed (using handoff_queue table)
   if (!typeFilter || typeFilter === 'handoff_completed') {
     try {
       const completed = await env.DB.prepare(`
         SELECT id, claimed_by, instruction, output_summary, project_name, completed_at as timestamp 
-        FROM handoff_tasks WHERE status = 'complete' AND claimed_by = ? 
+        FROM handoff_queue WHERE status = 'complete' AND claimed_by = ? 
         ${before ? `AND completed_at < ?` : ''}
         ORDER BY completed_at DESC LIMIT ?
       `).bind(...(before ? [userFilter, before, limit] : [userFilter, limit])).all();
@@ -343,7 +363,7 @@ async function getUnreadCount(env: Env, userId: string) {
 }
 
 // ==================
-// HANDOFF HANDLERS
+// HANDOFF HANDLERS (using handoff_queue table)
 // ==================
 async function listHandoffProjects(env: Env) {
   try {
@@ -351,7 +371,7 @@ async function listHandoffProjects(env: Env) {
       SELECT project_name, COUNT(*) as total,
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
         SUM(CASE WHEN status = 'complete' THEN 1 ELSE 0 END) as complete
-      FROM handoff_tasks WHERE project_name IS NOT NULL GROUP BY project_name
+      FROM handoff_queue WHERE project_name IS NOT NULL GROUP BY project_name
     `).all();
     return { projects: result.results || [] };
   } catch (e) {
@@ -362,8 +382,8 @@ async function listHandoffProjects(env: Env) {
 async function getHandoffProject(env: Env, projectName: string) {
   try {
     const [tasks, stats] = await Promise.all([
-      env.DB.prepare(`SELECT * FROM handoff_tasks WHERE project_name = ? ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC`).bind(projectName).all(),
-      env.DB.prepare(`SELECT status, COUNT(*) as count FROM handoff_tasks WHERE project_name = ? GROUP BY status`).bind(projectName).all()
+      env.DB.prepare(`SELECT * FROM handoff_queue WHERE project_name = ? ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC`).bind(projectName).all(),
+      env.DB.prepare(`SELECT status, COUNT(*) as count FROM handoff_queue WHERE project_name = ? GROUP BY status`).bind(projectName).all()
     ]);
     return { project: projectName, tasks: tasks.results || [], stats: stats.results || [] };
   } catch (e) {
@@ -375,7 +395,7 @@ async function getHandoffQueue(env: Env, url: URL) {
   try {
     const status = url.searchParams.get('status');
     const limit = parseInt(url.searchParams.get('limit') || '50');
-    let sql = `SELECT * FROM handoff_tasks WHERE 1=1`;
+    let sql = `SELECT * FROM handoff_queue WHERE 1=1`;
     const params: any[] = [];
     if (status) { sql += ` AND status = ?`; params.push(status); }
     sql += ` ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at ASC LIMIT ?`;
@@ -408,7 +428,8 @@ async function listMessages(env: Env, userId: string, url: URL) {
 
 async function sendMessage(env: Env, userId: string, data: any) {
   const id = `msg-${crypto.randomUUID().slice(0, 8)}`;
-  await env.DB.prepare(`INSERT INTO messages (id, from_user, to_user, content) VALUES (?, ?, ?, ?)`).bind(id, userId, data.to, data.content).run();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO messages (id, from_user, to_user, content, created_at) VALUES (?, ?, ?, ?, ?)`).bind(id, userId, data.to, data.content, now).run();
   return { id, success: true };
 }
 
@@ -454,7 +475,7 @@ async function getStatsOverview(env: Env, userId: string) {
   } catch (e) {}
   
   try {
-    const hp = await env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_tasks WHERE status = 'pending'`).first() as any;
+    const hp = await env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_queue WHERE status = 'pending'`).first() as any;
     handoffPending = hp?.count || 0;
   } catch (e) {}
   
@@ -485,8 +506,9 @@ async function handleGoogleOAuth(request: Request, env: Env, workerUrl: string):
 
   const tokens: any = await tokenResp.json();
   const exp = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+  const now = new Date().toISOString();
 
-  await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?`).bind(crypto.randomUUID(), stateUserId, provider, tokens.access_token, tokens.refresh_token, exp, new Date().toISOString(), tokens.access_token, tokens.refresh_token, exp).run();
+  await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?, updated_at = ?`).bind(crypto.randomUUID(), stateUserId, provider, tokens.access_token, tokens.refresh_token, exp, now, now, tokens.access_token, tokens.refresh_token, exp, now).run();
 
   const serviceName = SERVICE_NAMES[provider] || provider;
   return new Response(`<html><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;background:#0f172a;color:#e2e8f0"><div style="text-align:center"><h1>✅ ${serviceName} Connected!</h1><p>Close this window and return to Claude</p></div></body></html>`, { headers: { 'Content-Type': 'text/html' } });
@@ -511,7 +533,8 @@ async function handleGitHubOAuth(request: Request, env: Env, workerUrl: string):
   const tokens: any = await tokenResp.json();
   if (tokens.error) return new Response('GitHub error: ' + tokens.error_description, { status: 500 });
 
-  await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?`).bind(crypto.randomUUID(), stateUserId, 'github', tokens.access_token, null, null, new Date().toISOString(), tokens.access_token, null, null).run();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?, updated_at = ?`).bind(crypto.randomUUID(), stateUserId, 'github', tokens.access_token, null, null, now, now, tokens.access_token, null, null, now).run();
 
   return new Response(`<html><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;background:#0f172a;color:#e2e8f0"><div style="text-align:center"><h1>✅ GitHub Connected!</h1><p>Close this window and return to Claude</p></div></body></html>`, { headers: { 'Content-Type': 'text/html' } });
 }
