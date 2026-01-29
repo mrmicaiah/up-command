@@ -253,7 +253,7 @@ const Notifications = {
  * Integrations / Connections
  */
 const Integrations = {
-  status: () => apiGet('/api/connections/status'),
+  status: () => apiGet('/api/integrations/status'),
   connect: (service) => apiGet(`/api/connect/${service}`),
   disconnect: (service) => apiPost(`/api/disconnect/${service}`)
 };
