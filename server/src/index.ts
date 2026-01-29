@@ -1,7 +1,7 @@
 /**
  * UP Command API Server
  * REST API for the UP Command dashboard
- * Updated: 2026-01-29 - Test deploy for Irene worker
+ * Updated: 2026-01-29 - Added Cloudinary to integration status
  */
 
 import type { Env } from './types.js';
@@ -22,7 +22,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.1', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.2', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -832,7 +832,10 @@ async function getIntegrationStatus(env: Env, userId: string) {
       blogger_personal: false, 
       blogger_company: false, 
       github: false,
-      google_analytics: false 
+      google_analytics: false,
+      google_contacts_personal: false,
+      google_contacts_company: false,
+      cloudinary: true  // Cloudinary uses API keys configured at account level, always available via MCP
     };
     (tokens.results || []).forEach((t: any) => { services[t.provider] = true; });
     return { services };
