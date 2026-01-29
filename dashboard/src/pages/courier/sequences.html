@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sequences - Courier - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="courier.css">
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  <script src="courier-api.js"></script>
+  
+  <script>
+    let allSequences = [];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('courier', { showThread: false });
+      main.innerHTML = renderPage();
+      
+      if (!getCourierToken()) {
+        showCourierLogin(loadData);
+      } else {
+        await loadData();
+      }
+    });
+    
+    function renderPage() {
+      return `
+        <header class="courier-header">
+          <h1 class="courier-title">📧 Courier</h1>
+          <p class="courier-subtitle">Email marketing and automation</p>
+          <nav class="courier-nav">
+            <a href="index.html" class="courier-nav-item">Overview</a>
+            <a href="lists.html" class="courier-nav-item">Lists</a>
+            <a href="campaigns.html" class="courier-nav-item">Campaigns</a>
+            <a href="sequences.html" class="courier-nav-item active">Sequences</a>
+            <a href="subscribers.html" class="courier-nav-item">Subscribers</a>
+          </nav>
+        </header>
+        
+        <div class="section-header" style="margin-bottom: var(--space-6);">
+          <h2 class="section-title">🔄 Sequences</h2>
+          <button class="btn btn-primary" onclick="showNewSequenceModal()">+ New Sequence</button>
+        </div>
+        
+        <div class="section-card">
+          <div id="sequences-container">
+            <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading sequences...</span></div>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function loadData() {
+      const container = document.getElementById('sequences-container');
+      try {
+        const result = await CourierAPI.sequences();
+        allSequences = result.sequences || [];
+        
+        if (allSequences.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🔄</div>
+              <p>No sequences yet</p>
+              <p class="text-sm text-muted">Sequences are automated email series triggered by subscriber actions</p>
+              <button class="btn btn-primary mt-4" onclick="showNewSequenceModal()">Create your first sequence</button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Trigger</th>
+                <th>Steps</th>
+                <th>Active</th>
+                <th>Completed</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allSequences.map(seq => `
+                <tr>
+                  <td>
+                    <div class="sequence-name">${escapeHtml(seq.name)}</div>
+                    ${seq.description ? `<div class="list-meta">${escapeHtml(seq.description)}</div>` : ''}
+                  </td>
+                  <td>
+                    <span class="status-dot ${seq.status || 'draft'}"></span>
+                    ${seq.status || 'draft'}
+                  </td>
+                  <td class="text-sm">${seq.trigger_type || 'subscribe'}</td>
+                  <td><strong>${seq.step_count || 0}</strong></td>
+                  <td>${seq.active_enrollments || 0}</td>
+                  <td>${seq.completed_enrollments || 0}</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm" onclick="viewSequence('${seq.id}')">View</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p class="text-danger p-4">Failed to load sequences: ${err.message}</p>`;
+      }
+    }
+    
+    function showNewSequenceModal() {
+      alert('Sequence editor coming soon - use MCP tools for now');
+    }
+    
+    function viewSequence(id) {
+      alert('Sequence detail view coming soon');
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
