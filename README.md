@@ -63,6 +63,10 @@ npm run dev
 npm run deploy
 ```
 
+## Deployment
+
+Auto-deploys to Cloudflare Workers on push to `main` branch via Git integration.
+
 ## Team
 
 - **Micaiah** - Builder, operator
@@ -70,4 +74,4 @@ npm run deploy
 
 ---
 
-*Untitled Publishers © 2025*
+*Untitled Publishers © 2026*
