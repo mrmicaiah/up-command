@@ -19,7 +19,7 @@ export const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3';
 export const GMAIL_API_URL = 'https://gmail.googleapis.com/gmail/v1';
 export const BLOGGER_API_URL = 'https://www.googleapis.com/blogger/v3';
 export const PEOPLE_API_URL = 'https://people.googleapis.com/v1';
-export const ANALYTICS_DATA_API = 'https://analyticsdata.googleapis.com/v1beta';
+export const ANALYTICS_DATA_API_URL = 'https://analyticsdata.googleapis.com/v1beta';
 
 // GitHub API URL
 export const GITHUB_API_URL = 'https://api.github.com';
