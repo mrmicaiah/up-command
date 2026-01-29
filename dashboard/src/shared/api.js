@@ -131,7 +131,8 @@ const Tasks = {
   complete: (id) => apiPost(`/api/tasks/${id}/complete`),
   activate: (id) => apiPost(`/api/tasks/${id}/activate`),
   deactivate: (id) => apiPost(`/api/tasks/${id}/deactivate`),
-  snooze: (id, until) => apiPost(`/api/tasks/${id}/snooze`, { until })
+  snooze: (id, until) => apiPost(`/api/tasks/${id}/snooze`, { until }),
+  stats: () => apiGet('/api/tasks/stats')
 };
 
 /**
@@ -157,6 +158,8 @@ const Sprints = {
  */
 const Handoff = {
   queue: (filters = {}) => apiGet(`/api/handoff/queue?${new URLSearchParams(filters)}`),
+  projects: () => apiGet('/api/handoff/projects'),
+  projectStatus: (project) => apiGet(`/api/handoff/projects/${encodeURIComponent(project)}`),
   get: (id) => apiGet(`/api/handoff/tasks/${id}`),
   create: (task) => apiPost('/api/handoff/tasks', task),
   update: (id, data) => apiPut(`/api/handoff/tasks/${id}`, data),
@@ -165,8 +168,7 @@ const Handoff = {
   complete: (id, data) => apiPost(`/api/handoff/tasks/${id}/complete`, data),
   block: (id, reason) => apiPost(`/api/handoff/tasks/${id}/block`, { reason }),
   progress: (id, notes) => apiPost(`/api/handoff/tasks/${id}/progress`, { notes }),
-  results: (filters = {}) => apiGet(`/api/handoff/results?${new URLSearchParams(filters)}`),
-  projectStatus: (project) => apiGet(`/api/handoff/projects/${encodeURIComponent(project)}`)
+  results: (filters = {}) => apiGet(`/api/handoff/results?${new URLSearchParams(filters)}`)
 };
 
 /**
@@ -210,7 +212,15 @@ const Courier = {
  * Analytics (GA4)
  */
 const Analytics = {
+  // Admin - manage properties
+  accounts: () => apiGet('/api/analytics/accounts'),
+  available: () => apiGet('/api/analytics/available'),
   properties: () => apiGet('/api/analytics/properties'),
+  addProperty: (data) => apiPost('/api/analytics/properties', data),
+  updateProperty: (id, data) => apiPut(`/api/analytics/properties/${id}`, data),
+  deleteProperty: (id) => apiDelete(`/api/analytics/properties/${id}`),
+  
+  // Reporting
   report: (propertyId, days = 7) => apiGet(`/api/analytics/report?property_id=${propertyId}&days=${days}`),
   realtime: (propertyId) => apiGet(`/api/analytics/realtime?property_id=${propertyId}`),
   topContent: (propertyId, days = 30, limit = 10) => apiGet(`/api/analytics/top-content?property_id=${propertyId}&days=${days}&limit=${limit}`),
@@ -281,6 +291,20 @@ const WorkSessions = {
   history: (days = 7) => apiGet(`/api/work-sessions?days=${days}`)
 };
 
+/**
+ * Stats
+ */
+const Stats = {
+  overview: () => apiGet('/api/stats/overview')
+};
+
+/**
+ * Routines
+ */
+const Routines = {
+  list: () => apiGet('/api/routines')
+};
+
 // Export for use in other modules
 if (typeof window !== 'undefined') {
   window.api = api;
@@ -303,4 +327,6 @@ if (typeof window !== 'undefined') {
   window.Integrations = Integrations;
   window.Journal = Journal;
   window.WorkSessions = WorkSessions;
+  window.Stats = Stats;
+  window.Routines = Routines;
 }

@@ -178,13 +178,8 @@
       gap: var(--space-1);
     }
     
-    .stat-change.up {
-      color: var(--success);
-    }
-    
-    .stat-change.down {
-      color: var(--danger);
-    }
+    .stat-change.up { color: var(--success); }
+    .stat-change.down { color: var(--danger); }
     
     /* Charts Grid */
     .charts-grid {
@@ -195,9 +190,7 @@
     }
     
     @media (max-width: 1024px) {
-      .charts-grid {
-        grid-template-columns: 1fr;
-      }
+      .charts-grid { grid-template-columns: 1fr; }
     }
     
     .chart-card {
@@ -220,19 +213,11 @@
       font-weight: var(--font-semibold);
     }
     
-    .chart-container {
-      position: relative;
-      height: 300px;
-    }
-    
-    .chart-container.small {
-      height: 250px;
-    }
+    .chart-container { position: relative; height: 300px; }
+    .chart-container.small { height: 250px; }
     
     /* Tables */
-    .data-table {
-      width: 100%;
-    }
+    .data-table { width: 100%; }
     
     .data-table th {
       text-align: left;
@@ -251,13 +236,8 @@
       font-size: var(--text-sm);
     }
     
-    .data-table tr:last-child td {
-      border-bottom: none;
-    }
-    
-    .data-table tr:hover {
-      background: var(--bg-hover);
-    }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover { background: var(--bg-hover); }
     
     .page-path {
       color: var(--text-primary);
@@ -267,9 +247,7 @@
       white-space: nowrap;
     }
     
-    .bar-cell {
-      width: 100px;
-    }
+    .bar-cell { width: 100px; }
     
     .mini-bar {
       height: 8px;
@@ -313,16 +291,6 @@
       color: var(--text-muted);
     }
     
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(10, 14, 20, 0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: var(--radius-xl);
-    }
-    
     /* Connection Status */
     .connection-banner {
       background: var(--warning-muted);
@@ -341,6 +309,172 @@
       gap: var(--space-2);
       color: var(--warning);
     }
+    
+    /* Modal Styles */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-4);
+    }
+    
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: var(--text-xl);
+      cursor: pointer;
+      padding: var(--space-2);
+    }
+    
+    .modal-close:hover { color: var(--text-primary); }
+    
+    .modal-body {
+      padding: var(--space-6);
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .modal-footer {
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+    }
+    
+    /* Property List in Modal */
+    .property-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    
+    .property-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    
+    .property-info {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    
+    .property-name {
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+    
+    .property-id {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    
+    .property-actions {
+      display: flex;
+      gap: var(--space-2);
+    }
+    
+    .section-title {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: var(--space-3);
+      margin-top: var(--space-4);
+    }
+    
+    .section-title:first-child { margin-top: 0; }
+    
+    .available-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-2);
+    }
+    
+    .available-info {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    
+    .available-name {
+      font-weight: var(--font-medium);
+      color: var(--text-primary);
+    }
+    
+    .available-meta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: var(--space-6);
+      color: var(--text-muted);
+    }
+    
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: var(--space-1);
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+    }
+    
+    .icon-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    
+    .icon-btn.danger:hover {
+      color: var(--danger);
+    }
   </style>
 </head>
 <body>
@@ -350,6 +484,7 @@
   
   <script>
     let properties = [];
+    let availableProperties = [];
     let selectedProperty = null;
     let dateRange = 7;
     let trafficChart = null;
@@ -383,7 +518,8 @@
               <button class="date-btn" data-days="30" onclick="setDateRange(30)">30D</button>
               <button class="date-btn" data-days="90" onclick="setDateRange(90)">90D</button>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="refreshData()">🔄 Refresh</button>
+            <button class="btn btn-secondary btn-sm" onclick="openPropertyManager()" title="Manage Properties">⚙️</button>
+            <button class="btn btn-secondary btn-sm" onclick="refreshData()">🔄</button>
           </div>
         </div>
         
@@ -452,7 +588,6 @@
         
         <!-- Bottom Grid -->
         <div class="bottom-grid">
-          <!-- Top Pages -->
           <div class="chart-card">
             <div class="chart-header">
               <h3 class="chart-title">📄 Top Pages</h3>
@@ -465,7 +600,6 @@
             </div>
           </div>
           
-          <!-- Geography -->
           <div class="chart-card">
             <div class="chart-header">
               <h3 class="chart-title">🌍 Top Countries</h3>
@@ -478,13 +612,32 @@
             </div>
           </div>
         </div>
+        
+        <!-- Property Manager Modal -->
+        <div id="property-modal" class="modal-overlay" style="display: none;">
+          <div class="modal">
+            <div class="modal-header">
+              <h2 class="modal-title">⚙️ Manage GA4 Properties</h2>
+              <button class="modal-close" onclick="closePropertyManager()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+              <div class="loading-state">
+                <div class="spinner spinner-sm"></div>
+                <span>Loading properties...</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="closePropertyManager()">Close</button>
+            </div>
+          </div>
+        </div>
       `;
     }
     
     async function checkConnection() {
       try {
         const status = await Integrations.status();
-        isConnected = status?.services?.google_analytics || status?.services?.gmail_company;
+        isConnected = status?.services?.google_analytics || false;
         
         if (!isConnected) {
           document.getElementById('connection-banner').innerHTML = `
@@ -498,7 +651,7 @@
         }
       } catch (err) {
         console.error('Failed to check connection:', err);
-        isConnected = true; // Assume connected and try anyway
+        isConnected = true;
       }
     }
     
@@ -540,7 +693,8 @@
         <div class="no-data" style="width: 100%;">
           <div class="no-data-icon">📊</div>
           <p>No GA4 properties configured</p>
-          <p class="text-sm mt-2">Connect a GA4 property to see analytics data.</p>
+          <p class="text-sm mt-2">Click the ⚙️ button to add a property.</p>
+          <button class="btn btn-primary mt-4" onclick="openPropertyManager()">Add Property</button>
         </div>
       `;
     }
@@ -554,6 +708,134 @@
         </div>
       `;
     }
+    
+    // ==================
+    // Property Manager Modal
+    // ==================
+    
+    async function openPropertyManager() {
+      document.getElementById('property-modal').style.display = 'flex';
+      await loadPropertyManagerContent();
+    }
+    
+    function closePropertyManager() {
+      document.getElementById('property-modal').style.display = 'none';
+    }
+    
+    async function loadPropertyManagerContent() {
+      const modalBody = document.getElementById('modal-body');
+      modalBody.innerHTML = `
+        <div class="loading-state">
+          <div class="spinner spinner-sm"></div>
+          <span>Loading properties...</span>
+        </div>
+      `;
+      
+      try {
+        // Load configured properties
+        const configuredResult = await Analytics.properties();
+        properties = configuredResult?.properties || [];
+        
+        // Load available properties from Google
+        const availableResult = await Analytics.available();
+        availableProperties = availableResult?.properties || [];
+        
+        renderPropertyManagerContent();
+      } catch (err) {
+        console.error('Error loading properties:', err);
+        modalBody.innerHTML = `
+          <div class="empty-state">
+            <p>❌ Failed to load properties</p>
+            <p class="text-sm">${escapeHtml(err.message)}</p>
+          </div>
+        `;
+      }
+    }
+    
+    function renderPropertyManagerContent() {
+      const modalBody = document.getElementById('modal-body');
+      
+      let html = '';
+      
+      // Configured Properties
+      html += `<div class="section-title">Configured Properties</div>`;
+      if (properties.length > 0) {
+        html += '<div class="property-list">';
+        for (const prop of properties) {
+          html += `
+            <div class="property-item">
+              <div class="property-info">
+                <span class="property-name">${escapeHtml(prop.name)}</span>
+                <span class="property-id">ID: ${prop.property_id}</span>
+              </div>
+              <div class="property-actions">
+                <button class="icon-btn danger" onclick="removeProperty('${prop.id}')" title="Remove">
+                  🗑️
+                </button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+      } else {
+        html += '<div class="empty-state">No properties configured yet</div>';
+      }
+      
+      // Available Properties from Google
+      html += `<div class="section-title">Available from Google Account</div>`;
+      if (availableProperties.length > 0) {
+        for (const prop of availableProperties) {
+          html += `
+            <div class="available-item">
+              <div class="available-info">
+                <span class="available-name">${escapeHtml(prop.displayName)}</span>
+                <span class="available-meta">${escapeHtml(prop.accountName)} • ID: ${prop.propertyId}</span>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="addProperty('${prop.propertyId}', '${escapeHtml(prop.displayName).replace(/'/g, "\\'")}')">+ Add</button>
+            </div>
+          `;
+        }
+      } else if (properties.length > 0) {
+        html += '<div class="empty-state">All available properties have been added</div>';
+      } else {
+        html += `
+          <div class="empty-state">
+            <p>No properties found in your Google account</p>
+            <p class="text-sm">Make sure you have access to GA4 properties.</p>
+          </div>
+        `;
+      }
+      
+      modalBody.innerHTML = html;
+    }
+    
+    async function addProperty(propertyId, name) {
+      try {
+        await Analytics.addProperty({ property_id: propertyId, name: name });
+        await loadPropertyManagerContent();
+        await loadProperties(); // Refresh main dropdown
+      } catch (err) {
+        console.error('Error adding property:', err);
+        alert('Failed to add property: ' + err.message);
+      }
+    }
+    
+    async function removeProperty(id) {
+      if (!confirm('Remove this property from tracking?')) return;
+      
+      try {
+        await Analytics.deleteProperty(id);
+        await loadPropertyManagerContent();
+        await loadProperties(); // Refresh main dropdown
+      } catch (err) {
+        console.error('Error removing property:', err);
+        alert('Failed to remove property: ' + err.message);
+      }
+    }
+    
+    // ==================
+    // Data Loading
+    // ==================
     
     async function onPropertyChange() {
       const select = document.getElementById('property-select');
@@ -619,27 +901,20 @@
       try {
         const data = await Analytics.report(selectedProperty, dateRange);
         
-        // Update stats
         document.getElementById('stat-users').textContent = formatNumber(data?.users || 0);
         document.getElementById('stat-pageviews').textContent = formatNumber(data?.pageViews || 0);
         document.getElementById('stat-sessions').textContent = formatNumber(data?.sessions || 0);
         document.getElementById('stat-duration').textContent = formatDuration(data?.avgSessionDuration || 0);
         
-        // Update change indicators
         updateChange('stat-users-change', data?.usersChange);
         updateChange('stat-pageviews-change', data?.pageViewsChange);
         updateChange('stat-sessions-change', data?.sessionsChange);
         updateChange('stat-duration-change', data?.durationChange);
         
-        // Update traffic chart
         const dailyData = data?.daily || [];
         updateTrafficChart(dailyData);
       } catch (err) {
         console.error('Report error:', err);
-        document.getElementById('stat-users').textContent = '-';
-        document.getElementById('stat-pageviews').textContent = '-';
-        document.getElementById('stat-sessions').textContent = '-';
-        document.getElementById('stat-duration').textContent = '-';
       }
     }
     
@@ -660,9 +935,7 @@
     function updateTrafficChart(dailyData) {
       const ctx = document.getElementById('traffic-chart').getContext('2d');
       
-      if (trafficChart) {
-        trafficChart.destroy();
-      }
+      if (trafficChart) trafficChart.destroy();
       
       const labels = dailyData.map(d => formatChartDate(d.date));
       const users = dailyData.map(d => d.users || 0);
@@ -695,20 +968,11 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: {
-              position: 'top',
-              labels: { color: '#8b95a5' }
-            }
+            legend: { position: 'top', labels: { color: '#8b95a5' } }
           },
           scales: {
-            x: {
-              grid: { color: '#2a3441' },
-              ticks: { color: '#8b95a5' }
-            },
-            y: {
-              grid: { color: '#2a3441' },
-              ticks: { color: '#8b95a5' }
-            }
+            x: { grid: { color: '#2a3441' }, ticks: { color: '#8b95a5' } },
+            y: { grid: { color: '#2a3441' }, ticks: { color: '#8b95a5' } }
           }
         }
       });
@@ -717,9 +981,7 @@
     async function loadSources() {
       try {
         const data = await Analytics.sources(selectedProperty, dateRange);
-        const sources = data?.sources || [];
-        
-        updateSourcesChart(sources);
+        updateSourcesChart(data?.sources || []);
       } catch (err) {
         console.error('Sources error:', err);
       }
@@ -728,9 +990,7 @@
     function updateSourcesChart(sources) {
       const ctx = document.getElementById('sources-chart').getContext('2d');
       
-      if (sourcesChart) {
-        sourcesChart.destroy();
-      }
+      if (sourcesChart) sourcesChart.destroy();
       
       const colors = ['#e5a84b', '#60a5fa', '#4ade80', '#fb923c', '#f87171', '#a78bfa'];
       
@@ -748,10 +1008,7 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: {
-              position: 'right',
-              labels: { color: '#8b95a5', padding: 10 }
-            }
+            legend: { position: 'right', labels: { color: '#8b95a5', padding: 10 } }
           }
         }
       });
@@ -773,11 +1030,7 @@
         container.innerHTML = `
           <table class="data-table">
             <thead>
-              <tr>
-                <th>Page</th>
-                <th>Views</th>
-                <th class="bar-cell"></th>
-              </tr>
+              <tr><th>Page</th><th>Views</th><th class="bar-cell"></th></tr>
             </thead>
             <tbody>
               ${pages.map(page => `
@@ -816,11 +1069,7 @@
         container.innerHTML = `
           <table class="data-table">
             <thead>
-              <tr>
-                <th>Country</th>
-                <th>Users</th>
-                <th class="bar-cell"></th>
-              </tr>
+              <tr><th>Country</th><th>Users</th><th class="bar-cell"></th></tr>
             </thead>
             <tbody>
               ${countries.slice(0, 10).map(country => `
@@ -843,6 +1092,10 @@
       }
     }
     
+    // ==================
+    // Helpers
+    // ==================
+    
     function formatNumber(num) {
       if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
       if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
@@ -863,22 +1116,11 @@
     
     function getCountryFlag(country) {
       const flags = {
-        'United States': '🇺🇸',
-        'United Kingdom': '🇬🇧',
-        'Canada': '🇨🇦',
-        'Australia': '🇦🇺',
-        'Germany': '🇩🇪',
-        'France': '🇫🇷',
-        'India': '🇮🇳',
-        'Brazil': '🇧🇷',
-        'Japan': '🇯🇵',
-        'Mexico': '🇲🇽',
-        'Spain': '🇪🇸',
-        'Italy': '🇮🇹',
-        'Netherlands': '🇳🇱',
-        'South Korea': '🇰🇷',
-        'Russia': '🇷🇺',
-        'China': '🇨🇳'
+        'United States': '🇺🇸', 'United Kingdom': '🇬🇧', 'Canada': '🇨🇦',
+        'Australia': '🇦🇺', 'Germany': '🇩🇪', 'France': '🇫🇷',
+        'India': '🇮🇳', 'Brazil': '🇧🇷', 'Japan': '🇯🇵',
+        'Mexico': '🇲🇽', 'Spain': '🇪🇸', 'Italy': '🇮🇹',
+        'Netherlands': '🇳🇱', 'South Korea': '🇰🇷', 'Russia': '🇷🇺', 'China': '🇨🇳'
       };
       return flags[country] || '🌍';
     }
@@ -889,6 +1131,20 @@
       div.textContent = text;
       return div.innerHTML;
     }
+    
+    // Close modal on outside click
+    document.addEventListener('click', (e) => {
+      if (e.target.id === 'property-modal') {
+        closePropertyManager();
+      }
+    });
+    
+    // Close modal on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closePropertyManager();
+      }
+    });
   </script>
 </body>
 </html>
