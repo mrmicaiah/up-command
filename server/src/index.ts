@@ -126,6 +126,28 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       return json(await getIntegrationStatus(env, userId), cors);
     }
 
+    // ANALYTICS - stub endpoints until GA4 is properly integrated
+    if (segments[0] === 'analytics') {
+      if (segments[1] === 'properties' && method === 'GET') {
+        return json(await getAnalyticsProperties(env, userId), cors);
+      }
+      if (segments[1] === 'report' && method === 'GET') {
+        return json(await getAnalyticsReport(env, userId, url), cors);
+      }
+      if (segments[1] === 'realtime' && method === 'GET') {
+        return json(await getAnalyticsRealtime(env, userId, url), cors);
+      }
+      if (segments[1] === 'top-content' && method === 'GET') {
+        return json(await getAnalyticsTopContent(env, userId, url), cors);
+      }
+      if (segments[1] === 'sources' && method === 'GET') {
+        return json(await getAnalyticsSources(env, userId, url), cors);
+      }
+      if (segments[1] === 'geography' && method === 'GET') {
+        return json(await getAnalyticsGeography(env, userId, url), cors);
+      }
+    }
+
     // STATS
     if (segments[0] === 'stats' && segments[1] === 'overview' && method === 'GET') {
       return json(await getStatsOverview(env, userId), cors);
@@ -218,9 +240,6 @@ async function updateTask(env: Env, taskId: string, data: any) {
 }
 
 async function deleteTask(env: Env, userId: string, taskId: string) {
-  // Delete the task - this removes the routine definition
-  // Past completions are tracked by completed_at timestamps on individual task records
-  // For recurring tasks, this stops future occurrences
   const result = await env.DB.prepare(
     `DELETE FROM tasks WHERE (id = ? OR id LIKE ?) AND user_id = ?`
   ).bind(taskId, `%${taskId}%`, userId).run();
@@ -243,33 +262,28 @@ async function completeTask(env: Env, taskId: string) {
 async function getRoutines(env: Env, userId: string) {
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
-  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+  const dayOfWeek = today.getDay();
   const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
   const todayName = dayNames[dayOfWeek];
   
-  // Get all recurring tasks
   const result = await env.DB.prepare(
     `SELECT * FROM tasks WHERE user_id = ? AND recurrence IS NOT NULL AND recurrence != '' ORDER BY text`
   ).bind(userId).all();
   
   const allRoutines = result.results || [];
   
-  // Helper to check if routine is due today
   function isDueToday(recurrence: string): boolean {
     if (!recurrence) return false;
     const r = recurrence.toLowerCase();
     
     if (r === 'daily') return true;
     if (r === 'weekdays' && dayOfWeek >= 1 && dayOfWeek <= 5) return true;
-    if (r === 'weekly') return true; // Weekly tasks are always "available"
-    if (r === 'biweekly') return true; // Biweekly tasks show up, rely on completion tracking
-    if (r === 'monthly') return true; // Monthly tasks show up
-    if (r === 'yearly') return true; // Yearly tasks show up
-    
-    // Specific day: 'mon', 'tue', etc.
+    if (r === 'weekly') return true;
+    if (r === 'biweekly') return true;
+    if (r === 'monthly') return true;
+    if (r === 'yearly') return true;
     if (r === todayName) return true;
     
-    // Multiple days: 'mon,wed,fri'
     if (r.includes(',')) {
       const days = r.split(',').map(d => d.trim().toLowerCase());
       return days.includes(todayName);
@@ -278,13 +292,11 @@ async function getRoutines(env: Env, userId: string) {
     return false;
   }
   
-  // Helper to check if completed today
   function isCompletedToday(completedAt: string | null): boolean {
     if (!completedAt) return false;
     return completedAt.split('T')[0] === todayStr;
   }
   
-  // Process routines
   const todayRoutines: any[] = [];
   let doneToday = 0;
   let remaining = 0;
@@ -293,7 +305,6 @@ async function getRoutines(env: Env, userId: string) {
     const dueToday = isDueToday(routine.recurrence);
     const completedToday = isCompletedToday(routine.completed_at);
     
-    // Add computed fields
     routine.due_today = dueToday;
     routine.completed_today = completedToday;
     
@@ -307,7 +318,6 @@ async function getRoutines(env: Env, userId: string) {
     }
   });
   
-  // Get completion history for calendar (last 28 days)
   const historyResult = await env.DB.prepare(
     `SELECT date(completed_at) as date, COUNT(*) as count 
      FROM tasks 
@@ -350,19 +360,13 @@ async function getCurrentSprint(env: Env, userId: string) {
     const sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(userId).first();
     if (!sprint) return { sprint: null, objectives: [], tasks: [] };
 
-    // Get objectives for this sprint
     const objectivesResult = await env.DB.prepare(`SELECT * FROM objectives WHERE sprint_id = ? ORDER BY sort_order ASC`).bind((sprint as any).id).all();
     const objectives = objectivesResult.results || [];
 
-    // Get tasks for each objective - must query by specific objective IDs
     const allTasks: any[] = [];
     
     if (objectives.length > 0) {
-      // Build list of objective IDs
       const objectiveIds = objectives.map((o: any) => o.id);
-      
-      // Query tasks that belong to any of these objectives
-      // Using IN clause with the objective IDs from THIS sprint
       const placeholders = objectiveIds.map(() => '?').join(',');
       const tasksResult = await env.DB.prepare(
         `SELECT * FROM tasks WHERE user_id = ? AND objective_id IN (${placeholders}) ORDER BY status ASC, is_active DESC, priority DESC`
@@ -371,11 +375,7 @@ async function getCurrentSprint(env: Env, userId: string) {
       allTasks.push(...(tasksResult.results || []));
     }
 
-    return { 
-      sprint, 
-      objectives, 
-      tasks: allTasks 
-    };
+    return { sprint, objectives, tasks: allTasks };
   } catch (e: any) {
     console.error('getCurrentSprint error:', e);
     return { sprint: null, objectives: [], tasks: [], error: e.message };
@@ -421,7 +421,6 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
 
   const items: ActivityItem[] = [];
 
-  // 1. Check-ins
   if (!typeFilter || typeFilter === 'check_in') {
     try {
       const checkins = await env.DB.prepare(`
@@ -434,10 +433,9 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
         id: r.id, type: 'check_in', user: r.user_id, timestamp: r.timestamp,
         summary: r.thread_summary, data: r
       }));
-    } catch (e) { /* table may not exist */ }
+    } catch (e) {}
   }
 
-  // 2. Task completions
   if (!typeFilter || typeFilter === 'task_complete') {
     try {
       const tasks = await env.DB.prepare(`
@@ -451,10 +449,9 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
         id: r.id, type: 'task_complete', user: r.user_id, timestamp: r.timestamp,
         summary: `Completed: ${r.text}`, data: r
       }));
-    } catch (e) { /* table may not exist */ }
+    } catch (e) {}
   }
 
-  // 3. Messages (received)
   if (!typeFilter || typeFilter === 'message') {
     try {
       const messages = await env.DB.prepare(`
@@ -467,10 +464,9 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
         id: r.id, type: 'message', user: r.from_user, timestamp: r.timestamp,
         summary: `From ${r.from_user}: ${r.content?.slice(0, 80)}...`, data: r
       }));
-    } catch (e) { /* table may not exist */ }
+    } catch (e) {}
   }
 
-  // 4. Handoff tasks completed (using handoff_queue table)
   if (!typeFilter || typeFilter === 'handoff_completed') {
     try {
       const completed = await env.DB.prepare(`
@@ -484,10 +480,9 @@ async function getActivityFeed(env: Env, userId: string, url: URL) {
         id: r.id, type: 'handoff_completed', user: r.claimed_by || 'unknown', timestamp: r.timestamp,
         summary: r.output_summary?.slice(0, 80) || `Completed: ${r.instruction?.slice(0, 60)}...`, data: r
       }));
-    } catch (e) { /* table may not exist */ }
+    } catch (e) {}
   }
 
-  // Sort all by timestamp descending
   items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const limitedItems = items.slice(0, limit);
@@ -506,7 +501,7 @@ async function getUnreadCount(env: Env, userId: string) {
 }
 
 // ==================
-// HANDOFF HANDLERS (using handoff_queue table)
+// HANDOFF HANDLERS
 // ==================
 async function listHandoffProjects(env: Env) {
   try {
@@ -591,12 +586,121 @@ async function getMessageUnreadCount(env: Env, userId: string) {
 async function getIntegrationStatus(env: Env, userId: string) {
   try {
     const tokens = await env.DB.prepare(`SELECT provider, expires_at FROM oauth_tokens WHERE user_id = ?`).bind(userId).all();
-    const services: Record<string, boolean> = { google_drive: false, gmail_personal: false, gmail_company: false, blogger_personal: false, blogger_company: false, github: false };
+    const services: Record<string, boolean> = { 
+      google_drive: false, 
+      gmail_personal: false, 
+      gmail_company: false, 
+      blogger_personal: false, 
+      blogger_company: false, 
+      github: false,
+      google_analytics: false 
+    };
     (tokens.results || []).forEach((t: any) => { services[t.provider] = true; });
     return { services };
   } catch (e) {
     return { services: {} };
   }
+}
+
+// ==================
+// ANALYTICS HANDLERS (stub - requires GA4 OAuth integration)
+// ==================
+async function getAnalyticsProperties(env: Env, userId: string) {
+  // Check if google_analytics token exists
+  try {
+    const token = await env.DB.prepare(
+      `SELECT * FROM oauth_tokens WHERE user_id = ? AND provider = 'google_analytics'`
+    ).bind(userId).first();
+    
+    if (!token) {
+      return { 
+        properties: [], 
+        error: 'Google Analytics not connected. Connect via MCP tools first.',
+        needsConnection: true
+      };
+    }
+    
+    // TODO: Actually query GA4 Admin API for properties
+    // For now return empty with helpful message
+    return { 
+      properties: [],
+      message: 'GA4 API integration pending. Use MCP tools for now.'
+    };
+  } catch (e) {
+    return { properties: [], error: 'Failed to check analytics connection' };
+  }
+}
+
+async function getAnalyticsReport(env: Env, userId: string, url: URL) {
+  const propertyId = url.searchParams.get('property_id');
+  const days = parseInt(url.searchParams.get('days') || '7');
+  
+  if (!propertyId) {
+    return { error: 'property_id required' };
+  }
+  
+  // Stub response - would integrate with GA4 Data API
+  return {
+    users: 0,
+    pageViews: 0,
+    sessions: 0,
+    avgSessionDuration: 0,
+    daily: [],
+    message: 'GA4 API integration pending. Use MCP tools for now.'
+  };
+}
+
+async function getAnalyticsRealtime(env: Env, userId: string, url: URL) {
+  const propertyId = url.searchParams.get('property_id');
+  
+  if (!propertyId) {
+    return { error: 'property_id required' };
+  }
+  
+  return {
+    activeUsers: 0,
+    topPages: [],
+    message: 'GA4 API integration pending. Use MCP tools for now.'
+  };
+}
+
+async function getAnalyticsTopContent(env: Env, userId: string, url: URL) {
+  const propertyId = url.searchParams.get('property_id');
+  
+  if (!propertyId) {
+    return { error: 'property_id required' };
+  }
+  
+  return {
+    pages: [],
+    message: 'GA4 API integration pending. Use MCP tools for now.'
+  };
+}
+
+async function getAnalyticsSources(env: Env, userId: string, url: URL) {
+  const propertyId = url.searchParams.get('property_id');
+  
+  if (!propertyId) {
+    return { error: 'property_id required' };
+  }
+  
+  return {
+    sources: [],
+    message: 'GA4 API integration pending. Use MCP tools for now.'
+  };
+}
+
+async function getAnalyticsGeography(env: Env, userId: string, url: URL) {
+  const propertyId = url.searchParams.get('property_id');
+  
+  if (!propertyId) {
+    return { error: 'property_id required' };
+  }
+  
+  return {
+    countries: [],
+    message: 'GA4 API integration pending. Use MCP tools for now.'
+  };
 }
 
 // ==================
