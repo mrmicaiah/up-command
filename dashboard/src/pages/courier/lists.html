@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lists - Courier - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="courier.css">
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  <script src="courier-api.js"></script>
+  
+  <script>
+    let allLists = [];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('courier', { showThread: false });
+      main.innerHTML = renderPage();
+      
+      if (!getCourierToken()) {
+        showCourierLogin(loadData);
+      } else {
+        await loadData();
+      }
+    });
+    
+    function renderPage() {
+      return `
+        <header class="courier-header">
+          <h1 class="courier-title">📧 Courier</h1>
+          <p class="courier-subtitle">Email marketing and automation</p>
+          <nav class="courier-nav">
+            <a href="index.html" class="courier-nav-item">Overview</a>
+            <a href="lists.html" class="courier-nav-item active">Lists</a>
+            <a href="campaigns.html" class="courier-nav-item">Campaigns</a>
+            <a href="sequences.html" class="courier-nav-item">Sequences</a>
+            <a href="subscribers.html" class="courier-nav-item">Subscribers</a>
+          </nav>
+        </header>
+        
+        <div class="section-header" style="margin-bottom: var(--space-6);">
+          <h2 class="section-title">📋 Email Lists</h2>
+          <button class="btn btn-primary" onclick="showNewListModal()">+ New List</button>
+        </div>
+        
+        <div class="section-card">
+          <div id="lists-container">
+            <div class="loading-placeholder"><div class="spinner spinner-sm"></div><span>Loading lists...</span></div>
+          </div>
+        </div>
+        
+        <!-- New List Modal -->
+        <div class="modal-overlay" id="new-list-modal" style="display: none;">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>Create New List</h3>
+              <button class="btn btn-ghost" onclick="hideModal('new-list-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label>List Name *</label>
+                <input type="text" id="list-name" class="form-input" placeholder="e.g., Newsletter Subscribers">
+              </div>
+              <div class="form-group">
+                <label>From Name *</label>
+                <input type="text" id="list-from-name" class="form-input" placeholder="e.g., Untitled Publishers">
+              </div>
+              <div class="form-group">
+                <label>From Email *</label>
+                <input type="email" id="list-from-email" class="form-input" placeholder="e.g., hello@untitledpublishers.com">
+              </div>
+              <div class="form-group">
+                <label>Description</label>
+                <textarea id="list-description" class="form-input" rows="2" placeholder="What is this list for?"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideModal('new-list-modal')">Cancel</button>
+              <button class="btn btn-primary" onclick="createList()">Create List</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    async function loadData() {
+      const container = document.getElementById('lists-container');
+      try {
+        const result = await CourierAPI.lists();
+        allLists = result.lists || [];
+        
+        if (allLists.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📋</div>
+              <p>No email lists yet</p>
+              <button class="btn btn-primary" onclick="showNewListModal()">Create your first list</button>
+            </div>
+          `;
+          return;
+        }
+        
+        container.innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Subscribers</th>
+                <th>From</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allLists.map(list => `
+                <tr>
+                  <td>
+                    <div class="list-name">${escapeHtml(list.name)}</div>
+                    ${list.description ? `<div class="list-meta">${escapeHtml(list.description)}</div>` : ''}
+                  </td>
+                  <td><strong>${list.subscriber_count || 0}</strong></td>
+                  <td>
+                    <div class="text-sm">${escapeHtml(list.from_name || '-')}</div>
+                    <div class="text-xs text-muted">${escapeHtml(list.from_email || '')}</div>
+                  </td>
+                  <td>
+                    <span class="status-dot ${list.status || 'active'}"></span>
+                    ${list.status || 'active'}
+                  </td>
+                  <td class="text-sm text-muted">${formatDate(list.created_at)}</td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm" onclick="viewList('${list.id}')">View</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        container.innerHTML = `<p class="text-danger p-4">Failed to load lists: ${err.message}</p>`;
+      }
+    }
+    
+    function showNewListModal() {
+      document.getElementById('new-list-modal').style.display = 'flex';
+    }
+    
+    function hideModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+    
+    async function createList() {
+      const name = document.getElementById('list-name').value.trim();
+      const fromName = document.getElementById('list-from-name').value.trim();
+      const fromEmail = document.getElementById('list-from-email').value.trim();
+      const description = document.getElementById('list-description').value.trim();
+      
+      if (!name || !fromName || !fromEmail) {
+        alert('Please fill in all required fields');
+        return;
+      }
+      
+      try {
+        await CourierAPI.createList({ name, from_name: fromName, from_email: fromEmail, description });
+        hideModal('new-list-modal');
+        await loadData();
+      } catch (err) {
+        alert('Failed to create list: ' + err.message);
+      }
+    }
+    
+    function viewList(id) {
+      // TODO: Implement list detail view
+      alert('List detail view coming soon');
+    }
+    
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+  
+  <style>
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow: auto;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+    }
+    .modal-body {
+      padding: var(--space-6);
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border);
+    }
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+    .form-group label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      margin-bottom: var(--space-2);
+    }
+    .form-input {
+      width: 100%;
+      padding: var(--space-3);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-sm);
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+  </style>
+</body>
+</html>
