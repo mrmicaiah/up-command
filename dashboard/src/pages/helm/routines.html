@@ -488,8 +488,7 @@
   <script src="../../shared/nav.js"></script>
   
   <script>
-    let routines = [];
-    let todayRoutines = [];
+    let routinesData = null;
     
     const FREQUENCY_LABELS = {
       'daily': '🔄 Daily',
@@ -620,11 +619,9 @@
     
     async function loadRoutines() {
       try {
-        const res = await Tasks.list({ is_recurring: true, status: 'all', limit: 200 });
-        routines = res.tasks || [];
-        
-        // Filter for today's routines
-        todayRoutines = routines.filter(r => isDueToday(r)).filter(r => r.status === 'open');
+        // Use the new dedicated routines endpoint
+        const res = await api('/routines');
+        routinesData = res;
         
         updateStats();
         renderTodayRoutines();
@@ -641,53 +638,57 @@
       }
     }
     
-    function isDueToday(routine) {
-      if (!routine.recurrence) return false;
-      
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
-      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-      const todayName = dayNames[dayOfWeek];
-      
-      const recurrence = routine.recurrence.toLowerCase();
-      
-      if (recurrence === 'daily') return true;
-      if (recurrence === 'weekdays' && dayOfWeek >= 1 && dayOfWeek <= 5) return true;
-      if (recurrence === 'weekly') return true; // Simplified: assume all weekly are due
-      if (recurrence.includes(todayName)) return true;
-      if (recurrence.includes(',')) {
-        const days = recurrence.split(',').map(d => d.trim());
-        return days.includes(todayName);
-      }
-      
-      return false;
-    }
-    
     function updateStats() {
-      const completed = todayRoutines.filter(r => r.status === 'done').length;
-      const remaining = todayRoutines.length;
+      if (!routinesData) return;
       
-      document.getElementById('stat-completed').textContent = completed;
-      document.getElementById('stat-remaining').textContent = remaining;
-      document.getElementById('stat-total').textContent = routines.length;
-      document.getElementById('stat-streak').textContent = '🔥 7'; // Placeholder
+      const { stats, completionHistory } = routinesData;
+      
+      document.getElementById('stat-completed').textContent = stats.doneToday;
+      document.getElementById('stat-remaining').textContent = stats.remaining;
+      document.getElementById('stat-total').textContent = stats.total;
+      
+      // Calculate streak from completion history
+      const streak = calculateStreak(completionHistory);
+      document.getElementById('stat-streak').textContent = streak > 0 ? `🔥 ${streak}` : '0';
       
       // Update progress ring
-      const total = todayRoutines.length || 1;
-      const percent = Math.round((completed / total) * 100);
+      const total = stats.todayTotal || 1;
+      const percent = Math.round((stats.doneToday / total) * 100);
       const circumference = 125.6;
       const offset = circumference - (percent / 100) * circumference;
       
-      document.getElementById('done-count').textContent = completed;
-      document.getElementById('today-count').textContent = todayRoutines.length;
+      document.getElementById('done-count').textContent = stats.doneToday;
+      document.getElementById('today-count').textContent = stats.todayTotal;
       document.getElementById('progress-percent').textContent = `${percent}%`;
       document.getElementById('progress-circle').style.strokeDashoffset = offset;
+    }
+    
+    function calculateStreak(history) {
+      if (!history || Object.keys(history).length === 0) return 0;
+      
+      let streak = 0;
+      const today = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        if (history[dateStr] && history[dateStr] > 0) {
+          streak++;
+        } else if (i > 0) {
+          // Don't break on today if nothing done yet
+          break;
+        }
+      }
+      
+      return streak;
     }
     
     function renderTodayRoutines() {
       const container = document.getElementById('today-list');
       
-      if (todayRoutines.length === 0) {
+      if (!routinesData || routinesData.today.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <p>🎉 No routines scheduled for today!</p>
@@ -696,17 +697,23 @@
         return;
       }
       
-      container.innerHTML = todayRoutines.map(routine => {
-        const isCompleted = routine.status === 'done';
+      // Sort: incomplete first, then completed
+      const sorted = [...routinesData.today].sort((a, b) => {
+        if (a.completed_today && !b.completed_today) return 1;
+        if (!a.completed_today && b.completed_today) return -1;
+        return 0;
+      });
+      
+      container.innerHTML = sorted.map(routine => {
+        const isCompleted = routine.completed_today;
         return `
           <div class="routine-item ${isCompleted ? 'completed' : ''}" data-id="${routine.id}">
             <div class="routine-checkbox ${isCompleted ? 'checked' : ''}" 
-                 onclick="toggleRoutine('${routine.id}')"></div>
+                 onclick="toggleRoutine('${routine.id}', ${isCompleted})"></div>
             <div class="routine-content">
               <div class="routine-text">${escapeHtml(routine.text)}</div>
               <div class="routine-meta">
                 <span class="routine-frequency">${getFrequencyLabel(routine.recurrence)}</span>
-                ${routine.streak ? `<span class="routine-streak"><span class="streak-fire">🔥</span>${routine.streak}</span>` : ''}
               </div>
             </div>
           </div>
@@ -717,7 +724,7 @@
     function renderAllRoutines() {
       const container = document.getElementById('all-routines');
       
-      if (routines.length === 0) {
+      if (!routinesData || routinesData.all.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <p>No recurring tasks yet</p>
@@ -729,7 +736,7 @@
       
       // Group by frequency
       const groups = {};
-      routines.forEach(r => {
+      routinesData.all.forEach(r => {
         const freq = normalizeFrequency(r.recurrence);
         if (!groups[freq]) groups[freq] = [];
         groups[freq].push(r);
@@ -758,6 +765,8 @@
                 <div class="routine-text">${escapeHtml(routine.text)}</div>
                 <div class="routine-meta">
                   ${routine.category ? `<span>${escapeHtml(routine.category)}</span>` : ''}
+                  ${routine.due_today ? '<span style="color: var(--accent);">Due today</span>' : ''}
+                  ${routine.completed_today ? '<span style="color: var(--success);">✓ Done</span>' : ''}
                 </div>
               </div>
               <div class="routine-actions">
@@ -774,6 +783,7 @@
       const container = document.getElementById('streak-calendar');
       const today = new Date();
       const days = [];
+      const history = routinesData?.completionHistory || {};
       
       // Generate last 28 days
       for (let i = 27; i >= 0; i--) {
@@ -782,16 +792,15 @@
         days.push(date);
       }
       
-      // Placeholder: random completion for demo
       container.innerHTML = days.map((date, i) => {
         const isToday = date.toDateString() === today.toDateString();
-        // Simulate some completions for visual effect
-        const completed = Math.random() > 0.3;
-        const partial = !completed && Math.random() > 0.5;
+        const dateStr = date.toISOString().split('T')[0];
+        const completions = history[dateStr] || 0;
+        const completed = completions > 0;
         
         return `
-          <div class="calendar-day ${isToday ? 'today' : ''} ${completed ? 'completed' : partial ? 'partial' : ''}"
-               title="${date.toLocaleDateString()}"></div>
+          <div class="calendar-day ${isToday ? 'today' : ''} ${completed ? 'completed' : ''}"
+               title="${date.toLocaleDateString()}: ${completions} completed"></div>
         `;
       }).join('');
     }
@@ -815,12 +824,24 @@
       return `📌 ${recurrence}`;
     }
     
-    async function toggleRoutine(id) {
-      try {
-        await Tasks.complete(id);
-        await loadRoutines();
-      } catch (err) {
-        alert('Failed to update routine');
+    async function toggleRoutine(id, alreadyCompleted) {
+      if (alreadyCompleted) {
+        // Already done today - maybe allow "undo"?
+        if (!confirm('This routine is already done for today. Mark as incomplete?')) return;
+        try {
+          // Reset the task to open status
+          await api(`/tasks/${id}`, 'PUT', { status: 'open' });
+          await loadRoutines();
+        } catch (err) {
+          alert('Failed to update routine');
+        }
+      } else {
+        try {
+          await Tasks.complete(id);
+          await loadRoutines();
+        } catch (err) {
+          alert('Failed to complete routine');
+        }
       }
     }
     
