@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handoff - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <style>
+    .handoff-page { max-width: 1200px; }
+    .page-header { margin-bottom: var(--space-6); }
+    .page-title { font-family: var(--font-display); font-size: var(--text-4xl); font-weight: var(--font-semibold); margin-bottom: var(--space-2); }
+    .page-subtitle { color: var(--text-secondary); }
+    
+    .info-panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-4); margin-bottom: var(--space-6); }
+    .info-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .info-toggle h3 { font-size: var(--text-base); font-weight: var(--font-semibold); display: flex; align-items: center; gap: var(--space-2); }
+    .info-toggle .arrow { transition: transform var(--transition-fast); }
+    .info-toggle.expanded .arrow { transform: rotate(180deg); }
+    .info-content { display: none; padding-top: var(--space-4); border-top: 1px solid var(--border); margin-top: var(--space-4); }
+    .info-content.show { display: block; }
+    .info-content p { color: var(--text-secondary); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+    .info-content ul { color: var(--text-secondary); font-size: var(--text-sm); margin-left: var(--space-6); margin-bottom: var(--space-3); }
+    .info-content li { margin-bottom: var(--space-2); }
+    
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); margin-bottom: var(--space-8); }
+    @media (max-width: 800px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); text-align: center; }
+    .stat-value { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: var(--font-bold); }
+    .stat-label { font-size: var(--text-sm); color: var(--text-muted); }
+    
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4); }
+    .section-title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--font-semibold); }
+    
+    .projects-grid { display: grid; gap: var(--space-4); margin-bottom: var(--space-8); }
+    
+    .project-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; transition: all var(--transition-fast); }
+    .project-card:hover { border-color: var(--border-light); }
+    .project-card.expanded { border-color: var(--accent-muted); }
+    
+    .project-header { padding: var(--space-4) var(--space-5); cursor: pointer; }
+    .project-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3); }
+    .project-name { font-family: var(--font-display); font-size: var(--text-lg); font-weight: var(--font-semibold); }
+    .project-status-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+    .status-pill { font-size: 10px; font-weight: var(--font-semibold); padding: 2px 8px; border-radius: var(--radius-full); }
+    .status-pending { background: var(--bg-hover); color: var(--text-muted); }
+    .status-claimed { background: var(--info-muted); color: var(--info); }
+    .status-in_progress { background: var(--warning-muted); color: var(--warning); }
+    .status-complete { background: var(--success-muted); color: var(--success); }
+    .status-blocked { background: var(--danger-muted); color: var(--danger); }
+    
+    .project-progress { margin-bottom: var(--space-3); }
+    .progress-bar { height: 6px; background: var(--bg-hover); border-radius: var(--radius-full); overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: var(--radius-full); transition: width var(--transition-normal); }
+    .progress-text { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-1); }
+    
+    .project-meta { font-size: var(--text-xs); color: var(--text-muted); }
+    
+    .project-tasks { display: none; border-top: 1px solid var(--border); padding: var(--space-4) var(--space-5); background: var(--bg-secondary); }
+    .project-card.expanded .project-tasks { display: block; }
+    
+    .task-item { padding: var(--space-3); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: var(--space-3); }
+    .task-item:last-child { margin-bottom: 0; }
+    .task-item.blocked { border-left: 3px solid var(--danger); }
+    .task-item.complete { opacity: 0.7; }
+    
+    .task-header { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-2); }
+    .task-status-icon { font-size: var(--text-lg); }
+    .task-instruction { flex: 1; font-size: var(--text-sm); color: var(--text-primary); }
+    .task-priority { font-size: var(--text-xs); }
+    .priority-urgent { color: var(--danger); }
+    .priority-high { color: var(--warning); }
+    .priority-normal { color: var(--text-muted); }
+    
+    .task-details { font-size: var(--text-xs); color: var(--text-muted); display: flex; flex-wrap: wrap; gap: var(--space-3); }
+    
+    .blocked-reason { margin-top: var(--space-2); padding: var(--space-2); background: var(--danger-muted); border-radius: var(--radius-sm); font-size: var(--text-xs); color: var(--danger); }
+    
+    .output-summary { margin-top: var(--space-2); padding: var(--space-2); background: var(--success-muted); border-radius: var(--radius-sm); font-size: var(--text-xs); color: var(--success); }
+    
+    .past-projects { margin-top: var(--space-8); }
+    .past-projects-toggle { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; color: var(--text-muted); font-size: var(--text-sm); margin-bottom: var(--space-4); }
+    .past-projects-content { display: none; }
+    .past-projects-content.show { display: block; }
+    
+    .empty-state { text-align: center; padding: var(--space-8); color: var(--text-muted); }
+    .loading-state { display: flex; align-items: center; justify-content: center; gap: var(--space-3); padding: var(--space-8); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    let projectsData = [];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('handoff', { showThread: true });
+      main.innerHTML = renderPage();
+      
+      await loadHandoffData();
+    });
+    
+    function renderPage() {
+      return `
+        <div class="handoff-page">
+          <header class="page-header">
+            <h1 class="page-title">🔄 Handoff</h1>
+            <p class="page-subtitle">View-only dashboard for the Manager/Worker task system</p>
+          </header>
+          
+          <div class="info-panel">
+            <div class="info-toggle" onclick="toggleInfo()">
+              <h3>ℹ️ How Handoff Works</h3>
+              <span class="arrow">▼</span>
+            </div>
+            <div class="info-content">
+              <p>Handoff is a task delegation system managed through Claude chat:</p>
+              <ul>
+                <li><strong>Manager Chat:</strong> Creates tasks, monitors progress, reviews completed work</li>
+                <li><strong>Worker Chat:</strong> Claims pending tasks, executes work, marks complete with outputs</li>
+              </ul>
+              <p>This dashboard is <strong>view-only</strong>. All actions happen through MCP tools in chat.</p>
+              <p><a href="/docs/handoff/" class="text-accent">Read the full documentation →</a></p>
+            </div>
+          </div>
+          
+          <div class="stats-row">
+            <div class="stat-card"><div class="stat-value text-warning" id="stat-pending">-</div><div class="stat-label">Pending</div></div>
+            <div class="stat-card"><div class="stat-value text-info" id="stat-progress">-</div><div class="stat-label">In Progress</div></div>
+            <div class="stat-card"><div class="stat-value text-success" id="stat-complete">-</div><div class="stat-label">Complete</div></div>
+            <div class="stat-card"><div class="stat-value text-danger" id="stat-blocked">-</div><div class="stat-label">Blocked</div></div>
+          </div>
+          
+          <section>
+            <div class="section-header">
+              <h2 class="section-title">📂 Active Projects</h2>
+            </div>
+            <div class="projects-grid" id="active-projects">
+              <div class="loading-state"><div class="spinner"></div><span>Loading projects...</span></div>
+            </div>
+          </section>
+          
+          <section class="past-projects">
+            <div class="past-projects-toggle" onclick="togglePastProjects()">
+              <span>📁 Past Projects</span>
+              <span class="arrow">▼</span>
+            </div>
+            <div class="past-projects-content" id="past-projects">
+              <div class="loading-state"><div class="spinner spinner-sm"></div><span>Loading...</span></div>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+    
+    function toggleInfo() {
+      const toggle = document.querySelector('.info-toggle');
+      const content = document.querySelector('.info-content');
+      toggle.classList.toggle('expanded');
+      content.classList.toggle('show');
+    }
+    
+    function togglePastProjects() {
+      const content = document.getElementById('past-projects');
+      content.classList.toggle('show');
+    }
+    
+    async function loadHandoffData() {
+      try {
+        const [queueRes] = await Promise.all([
+          Handoff.queue({ limit: 200 })
+        ]);
+        
+        const tasks = queueRes.data || [];
+        
+        // Update stats
+        const stats = { pending: 0, claimed: 0, in_progress: 0, complete: 0, blocked: 0 };
+        tasks.forEach(t => stats[t.status] = (stats[t.status] || 0) + 1);
+        
+        document.getElementById('stat-pending').textContent = stats.pending + stats.claimed;
+        document.getElementById('stat-progress').textContent = stats.in_progress;
+        document.getElementById('stat-complete').textContent = stats.complete;
+        document.getElementById('stat-blocked').textContent = stats.blocked;
+        
+        // Group by project
+        const projects = {};
+        tasks.forEach(t => {
+          const proj = t.project_name || 'Unassigned';
+          if (!projects[proj]) projects[proj] = { name: proj, tasks: [], isActive: false };
+          projects[proj].tasks.push(t);
+          if (t.status !== 'complete') projects[proj].isActive = true;
+        });
+        
+        projectsData = Object.values(projects);
+        
+        // Render projects
+        const activeProjects = projectsData.filter(p => p.isActive);
+        const pastProjects = projectsData.filter(p => !p.isActive);
+        
+        document.getElementById('active-projects').innerHTML = activeProjects.length 
+          ? activeProjects.map(p => renderProjectCard(p)).join('')
+          : '<div class="empty-state"><p>No active projects</p></div>';
+        
+        document.getElementById('past-projects').innerHTML = pastProjects.length
+          ? pastProjects.map(p => renderProjectCard(p, true)).join('')
+          : '<div class="empty-state"><p>No past projects</p></div>';
+          
+      } catch (err) {
+        console.error('Failed to load handoff data:', err);
+        document.getElementById('active-projects').innerHTML = '<div class="empty-state text-danger">Failed to load</div>';
+      }
+    }
+    
+    function renderProjectCard(project, isPast = false) {
+      const tasks = project.tasks;
+      const complete = tasks.filter(t => t.status === 'complete').length;
+      const pending = tasks.filter(t => t.status === 'pending').length;
+      const claimed = tasks.filter(t => t.status === 'claimed').length;
+      const inProgress = tasks.filter(t => t.status === 'in_progress').length;
+      const blocked = tasks.filter(t => t.status === 'blocked').length;
+      const progress = tasks.length ? Math.round((complete / tasks.length) * 100) : 0;
+      
+      const lastActivity = tasks.reduce((latest, t) => {
+        const updated = new Date(t.updated_at || t.created_at);
+        return updated > latest ? updated : latest;
+      }, new Date(0));
+      
+      return `
+        <div class="project-card" data-project="${escapeHtml(project.name)}">
+          <div class="project-header" onclick="toggleProject(this)">
+            <div class="project-title-row">
+              <span class="project-name">${escapeHtml(project.name)}</span>
+              <div class="project-status-pills">
+                ${pending ? `<span class="status-pill status-pending">${pending} pending</span>` : ''}
+                ${claimed ? `<span class="status-pill status-claimed">${claimed} claimed</span>` : ''}
+                ${inProgress ? `<span class="status-pill status-in_progress">${inProgress} in progress</span>` : ''}
+                ${blocked ? `<span class="status-pill status-blocked">${blocked} blocked</span>` : ''}
+                ${complete ? `<span class="status-pill status-complete">${complete} done</span>` : ''}
+              </div>
+            </div>
+            <div class="project-progress">
+              <div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>
+              <div class="progress-text">${complete} of ${tasks.length} complete (${progress}%)</div>
+            </div>
+            <div class="project-meta">Last activity: ${formatRelativeTime(lastActivity)}</div>
+          </div>
+          <div class="project-tasks">
+            ${tasks.sort((a, b) => {
+              const order = { blocked: 0, in_progress: 1, claimed: 2, pending: 3, complete: 4 };
+              return (order[a.status] || 5) - (order[b.status] || 5);
+            }).map(t => renderTaskItem(t)).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    function renderTaskItem(task) {
+      const statusIcons = {
+        pending: '⏳', claimed: '🤝', in_progress: '🔧', complete: '✅', blocked: '🚫'
+      };
+      const priorityClass = task.priority === 'urgent' ? 'priority-urgent' : 
+                            task.priority === 'high' ? 'priority-high' : 'priority-normal';
+      
+      return `
+        <div class="task-item ${task.status} ${task.status === 'blocked' ? 'blocked' : ''} ${task.status === 'complete' ? 'complete' : ''}">
+          <div class="task-header">
+            <span class="task-status-icon">${statusIcons[task.status] || '•'}</span>
+            <span class="task-instruction">${escapeHtml(task.instruction.substring(0, 150))}${task.instruction.length > 150 ? '...' : ''}</span>
+            <span class="task-priority ${priorityClass}">${task.priority || 'normal'}</span>
+          </div>
+          <div class="task-details">
+            <span>Status: ${task.status}</span>
+            ${task.claimed_by ? `<span>Claimed by: ${task.claimed_by}</span>` : ''}
+            <span>Created: ${formatRelativeTime(task.created_at)}</span>
+          </div>
+          ${task.status === 'blocked' && task.block_reason ? `
+            <div class="blocked-reason">🚫 ${escapeHtml(task.block_reason)}</div>
+          ` : ''}
+          ${task.status === 'complete' && task.output_summary ? `
+            <div class="output-summary">✅ ${escapeHtml(task.output_summary)}</div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+    function toggleProject(header) {
+      const card = header.closest('.project-card');
+      card.classList.toggle('expanded');
+    }
+    
+    function formatRelativeTime(ts) {
+      if (!ts) return 'unknown';
+      const diff = Date.now() - new Date(ts);
+      const mins = Math.floor(diff / 60000);
+      const hrs = Math.floor(diff / 3600000);
+      const days = Math.floor(diff / 86400000);
+      if (mins < 1) return 'just now';
+      if (mins < 60) return `${mins}m ago`;
+      if (hrs < 24) return `${hrs}h ago`;
+      if (days < 7) return `${days}d ago`;
+      return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    
+    function escapeHtml(t) {
+      if (!t) return '';
+      const d = document.createElement('div');
+      d.textContent = t;
+      return d.innerHTML;
+    }
+  </script>
+</body>
+</html>
