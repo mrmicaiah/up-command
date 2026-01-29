@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Routines - Helm - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <link rel="stylesheet" href="helm.css">
+  <style>
+    .routines-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-6);
+    }
+    
+    .routines-title {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .today-section {
+      background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+    
+    .today-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-4);
+    }
+    
+    .today-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .today-progress {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    
+    .progress-text {
+      font-size: var(--text-sm);
+      color: var(--text-secondary);
+    }
+    
+    .progress-ring {
+      width: 48px;
+      height: 48px;
+      position: relative;
+    }
+    
+    .progress-ring svg {
+      transform: rotate(-90deg);
+    }
+    
+    .progress-ring-bg {
+      fill: none;
+      stroke: var(--bg-hover);
+      stroke-width: 4;
+    }
+    
+    .progress-ring-fill {
+      fill: none;
+      stroke: var(--success);
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.5s ease;
+    }
+    
+    .progress-ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--text-xs);
+      font-weight: var(--font-bold);
+    }
+    
+    .routine-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+    
+    .routine-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      transition: all var(--transition-fast);
+    }
+    
+    .routine-item:hover {
+      border-color: var(--border-light);
+    }
+    
+    .routine-item.completed {
+      opacity: 0.7;
+    }
+    
+    .routine-checkbox {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+    }
+    
+    .routine-checkbox:hover {
+      border-color: var(--success);
+      background: var(--success-muted);
+    }
+    
+    .routine-checkbox.checked {
+      background: var(--success);
+      border-color: var(--success);
+    }
+    
+    .routine-checkbox.checked::after {
+      content: '✓';
+      color: white;
+      font-size: 14px;
+    }
+    
+    .routine-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .routine-text {
+      font-size: var(--text-base);
+      margin-bottom: var(--space-1);
+    }
+    
+    .routine-item.completed .routine-text {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    
+    .routine-meta {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    .routine-frequency {
+      background: var(--bg-hover);
+      padding: 2px var(--space-2);
+      border-radius: var(--radius-sm);
+    }
+    
+    .routine-streak {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      color: var(--accent);
+    }
+    
+    .streak-fire {
+      font-size: var(--text-sm);
+    }
+    
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      margin-bottom: var(--space-6);
+    }
+    
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .section-title {
+      font-family: var(--font-display);
+      font-size: var(--text-lg);
+      font-weight: var(--font-semibold);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    
+    .section-body {
+      padding: var(--space-4) var(--space-6);
+    }
+    
+    .frequency-group {
+      margin-bottom: var(--space-6);
+    }
+    
+    .frequency-group:last-child {
+      margin-bottom: 0;
+    }
+    
+    .frequency-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      margin-bottom: var(--space-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .all-routine-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      transition: background var(--transition-fast);
+    }
+    
+    .all-routine-item:hover {
+      background: var(--bg-hover);
+    }
+    
+    .routine-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-muted);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    .routine-actions {
+      display: flex;
+      gap: var(--space-1);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+    
+    .all-routine-item:hover .routine-actions {
+      opacity: 1;
+    }
+    
+    .action-btn {
+      padding: var(--space-1) var(--space-2);
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+    }
+    
+    .action-btn:hover {
+      background: var(--bg-active);
+      color: var(--text-primary);
+    }
+    
+    /* Streak Calendar */
+    .streak-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      margin-top: var(--space-4);
+    }
+    
+    .calendar-day {
+      aspect-ratio: 1;
+      border-radius: var(--radius-sm);
+      background: var(--bg-hover);
+      position: relative;
+    }
+    
+    .calendar-day.completed {
+      background: var(--success);
+    }
+    
+    .calendar-day.partial {
+      background: var(--success);
+      opacity: 0.5;
+    }
+    
+    .calendar-day.today {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+    
+    .calendar-labels {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 3px;
+      margin-bottom: var(--space-1);
+    }
+    
+    .calendar-label {
+      text-align: center;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    
+    /* Stats Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+    
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: var(--text-3xl);
+      font-weight: var(--font-bold);
+      margin-bottom: var(--space-1);
+    }
+    
+    .stat-label {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8);
+      color: var(--text-muted);
+    }
+    
+    .loading-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      padding: var(--space-8);
+      color: var(--text-muted);
+    }
+    
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: var(--space-4);
+    }
+    
+    .modal-backdrop.visible {
+      display: flex;
+    }
+    
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 450px;
+    }
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: var(--text-xl);
+      font-weight: var(--font-semibold);
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: var(--text-xl);
+    }
+    
+    .modal-body {
+      padding: var(--space-6);
+    }
+    
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border);
+    }
+    
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+    
+    .form-label {
+      display: block;
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      margin-bottom: var(--space-2);
+      color: var(--text-secondary);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: var(--space-3);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: var(--text-base);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    .frequency-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-2);
+    }
+    
+    .frequency-option {
+      padding: var(--space-3);
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      text-align: center;
+      font-size: var(--text-sm);
+      transition: all var(--transition-fast);
+    }
+    
+    .frequency-option:hover {
+      border-color: var(--border-light);
+    }
+    
+    .frequency-option.selected {
+      border-color: var(--accent);
+      background: var(--accent-muted);
+    }
+  </style>
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    let routines = [];
+    let todayRoutines = [];
+    
+    const FREQUENCY_LABELS = {
+      'daily': '🔄 Daily',
+      'weekdays': '📅 Weekdays',
+      'weekly': '📆 Weekly',
+      'biweekly': '🗓️ Biweekly',
+      'monthly': '📅 Monthly',
+      'yearly': '🎂 Yearly',
+      'mon': '📌 Monday',
+      'tue': '📌 Tuesday',
+      'wed': '📌 Wednesday',
+      'thu': '📌 Thursday',
+      'fri': '📌 Friday',
+      'sat': '📌 Saturday',
+      'sun': '📌 Sunday'
+    };
+    
+    const FREQUENCY_ORDER = ['daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly'];
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      
+      const main = initLayout('helm', { showThread: false });
+      main.innerHTML = renderPage();
+      
+      await loadRoutines();
+    });
+    
+    function renderPage() {
+      return `
+        <header class="helm-header">
+          <h1 class="helm-title">⚓ Helm</h1>
+          <p class="helm-subtitle">Task management & sprint planning</p>
+          <nav class="helm-nav">
+            <a href="index.html" class="helm-nav-item">Overview</a>
+            <a href="tasks.html" class="helm-nav-item">Tasks</a>
+            <a href="sprint.html" class="helm-nav-item">Sprint</a>
+            <a href="backlog.html" class="helm-nav-item">Backlog</a>
+            <a href="routines.html" class="helm-nav-item active">Routines</a>
+          </nav>
+        </header>
+        
+        <div class="routines-header">
+          <h2 class="routines-title">🔄 Routines</h2>
+          <button class="btn btn-primary" onclick="showAddRoutineModal()">+ Add Routine</button>
+        </div>
+        
+        <!-- Stats Row -->
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-value text-success" id="stat-completed">-</div>
+            <div class="stat-label">Done Today</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-remaining">-</div>
+            <div class="stat-label">Remaining</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value text-accent" id="stat-total">-</div>
+            <div class="stat-label">Total Routines</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value text-warning" id="stat-streak">-</div>
+            <div class="stat-label">Best Streak</div>
+          </div>
+        </div>
+        
+        <!-- Today's Routines -->
+        <div class="today-section">
+          <div class="today-header">
+            <h3 class="today-title">☀️ Today's Routines</h3>
+            <div class="today-progress">
+              <span class="progress-text"><span id="done-count">0</span>/<span id="today-count">0</span> complete</span>
+              <div class="progress-ring">
+                <svg width="48" height="48">
+                  <circle class="progress-ring-bg" cx="24" cy="24" r="20"></circle>
+                  <circle class="progress-ring-fill" id="progress-circle" cx="24" cy="24" r="20" 
+                    stroke-dasharray="125.6" stroke-dashoffset="125.6"></circle>
+                </svg>
+                <div class="progress-ring-text" id="progress-percent">0%</div>
+              </div>
+            </div>
+          </div>
+          <div class="routine-list" id="today-list">
+            <div class="loading-state">
+              <div class="spinner spinner-sm"></div>
+              <span>Loading routines...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 4-Week Calendar -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3 class="section-title">📊 Last 4 Weeks</h3>
+          </div>
+          <div class="section-body">
+            <div class="calendar-labels">
+              <div class="calendar-label">S</div>
+              <div class="calendar-label">M</div>
+              <div class="calendar-label">T</div>
+              <div class="calendar-label">W</div>
+              <div class="calendar-label">T</div>
+              <div class="calendar-label">F</div>
+              <div class="calendar-label">S</div>
+            </div>
+            <div class="streak-calendar" id="streak-calendar"></div>
+          </div>
+        </div>
+        
+        <!-- All Recurring Tasks -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3 class="section-title">📋 All Recurring Tasks</h3>
+          </div>
+          <div class="section-body" id="all-routines">
+            <div class="loading-state">
+              <div class="spinner spinner-sm"></div>
+              <span>Loading...</span>
+            </div>
+          </div>
+        </div>
+        
+        ${renderAddRoutineModal()}
+      `;
+    }
+    
+    async function loadRoutines() {
+      try {
+        const res = await Tasks.list({ is_recurring: true, status: 'all', limit: 200 });
+        routines = res.tasks || [];
+        
+        // Filter for today's routines
+        todayRoutines = routines.filter(r => isDueToday(r)).filter(r => r.status === 'open');
+        
+        updateStats();
+        renderTodayRoutines();
+        renderAllRoutines();
+        renderCalendar();
+      } catch (err) {
+        console.error('Failed to load routines:', err);
+        document.getElementById('today-list').innerHTML = `
+          <div class="empty-state">
+            <p>❌ Failed to load routines</p>
+            <button class="btn btn-secondary btn-sm mt-4" onclick="loadRoutines()">Retry</button>
+          </div>
+        `;
+      }
+    }
+    
+    function isDueToday(routine) {
+      if (!routine.recurrence) return false;
+      
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+      const todayName = dayNames[dayOfWeek];
+      
+      const recurrence = routine.recurrence.toLowerCase();
+      
+      if (recurrence === 'daily') return true;
+      if (recurrence === 'weekdays' && dayOfWeek >= 1 && dayOfWeek <= 5) return true;
+      if (recurrence === 'weekly') return true; // Simplified: assume all weekly are due
+      if (recurrence.includes(todayName)) return true;
+      if (recurrence.includes(',')) {
+        const days = recurrence.split(',').map(d => d.trim());
+        return days.includes(todayName);
+      }
+      
+      return false;
+    }
+    
+    function updateStats() {
+      const completed = todayRoutines.filter(r => r.status === 'done').length;
+      const remaining = todayRoutines.length;
+      
+      document.getElementById('stat-completed').textContent = completed;
+      document.getElementById('stat-remaining').textContent = remaining;
+      document.getElementById('stat-total').textContent = routines.length;
+      document.getElementById('stat-streak').textContent = '🔥 7'; // Placeholder
+      
+      // Update progress ring
+      const total = todayRoutines.length || 1;
+      const percent = Math.round((completed / total) * 100);
+      const circumference = 125.6;
+      const offset = circumference - (percent / 100) * circumference;
+      
+      document.getElementById('done-count').textContent = completed;
+      document.getElementById('today-count').textContent = todayRoutines.length;
+      document.getElementById('progress-percent').textContent = `${percent}%`;
+      document.getElementById('progress-circle').style.strokeDashoffset = offset;
+    }
+    
+    function renderTodayRoutines() {
+      const container = document.getElementById('today-list');
+      
+      if (todayRoutines.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>🎉 No routines scheduled for today!</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = todayRoutines.map(routine => {
+        const isCompleted = routine.status === 'done';
+        return `
+          <div class="routine-item ${isCompleted ? 'completed' : ''}" data-id="${routine.id}">
+            <div class="routine-checkbox ${isCompleted ? 'checked' : ''}" 
+                 onclick="toggleRoutine('${routine.id}')"></div>
+            <div class="routine-content">
+              <div class="routine-text">${escapeHtml(routine.text)}</div>
+              <div class="routine-meta">
+                <span class="routine-frequency">${getFrequencyLabel(routine.recurrence)}</span>
+                ${routine.streak ? `<span class="routine-streak"><span class="streak-fire">🔥</span>${routine.streak}</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    function renderAllRoutines() {
+      const container = document.getElementById('all-routines');
+      
+      if (routines.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>No recurring tasks yet</p>
+            <button class="btn btn-primary btn-sm mt-4" onclick="showAddRoutineModal()">Create Your First Routine</button>
+          </div>
+        `;
+        return;
+      }
+      
+      // Group by frequency
+      const groups = {};
+      routines.forEach(r => {
+        const freq = normalizeFrequency(r.recurrence);
+        if (!groups[freq]) groups[freq] = [];
+        groups[freq].push(r);
+      });
+      
+      // Sort groups
+      const sortedFreqs = Object.keys(groups).sort((a, b) => {
+        const aIdx = FREQUENCY_ORDER.indexOf(a);
+        const bIdx = FREQUENCY_ORDER.indexOf(b);
+        if (aIdx === -1 && bIdx === -1) return a.localeCompare(b);
+        if (aIdx === -1) return 1;
+        if (bIdx === -1) return -1;
+        return aIdx - bIdx;
+      });
+      
+      container.innerHTML = sortedFreqs.map(freq => `
+        <div class="frequency-group">
+          <div class="frequency-header">
+            ${getFrequencyLabel(freq)}
+            <span style="font-weight: normal;">(${groups[freq].length})</span>
+          </div>
+          ${groups[freq].map(routine => `
+            <div class="all-routine-item" data-id="${routine.id}">
+              <div class="routine-icon">🔄</div>
+              <div class="routine-content">
+                <div class="routine-text">${escapeHtml(routine.text)}</div>
+                <div class="routine-meta">
+                  ${routine.category ? `<span>${escapeHtml(routine.category)}</span>` : ''}
+                </div>
+              </div>
+              <div class="routine-actions">
+                <button class="action-btn" onclick="editRoutine('${routine.id}')" title="Edit">✏️</button>
+                <button class="action-btn" onclick="deleteRoutine('${routine.id}')" title="Delete">🗑️</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+    
+    function renderCalendar() {
+      const container = document.getElementById('streak-calendar');
+      const today = new Date();
+      const days = [];
+      
+      // Generate last 28 days
+      for (let i = 27; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        days.push(date);
+      }
+      
+      // Placeholder: random completion for demo
+      container.innerHTML = days.map((date, i) => {
+        const isToday = date.toDateString() === today.toDateString();
+        // Simulate some completions for visual effect
+        const completed = Math.random() > 0.3;
+        const partial = !completed && Math.random() > 0.5;
+        
+        return `
+          <div class="calendar-day ${isToday ? 'today' : ''} ${completed ? 'completed' : partial ? 'partial' : ''}"
+               title="${date.toLocaleDateString()}"></div>
+        `;
+      }).join('');
+    }
+    
+    function normalizeFrequency(recurrence) {
+      if (!recurrence) return 'other';
+      const r = recurrence.toLowerCase();
+      if (FREQUENCY_ORDER.includes(r)) return r;
+      if (r.includes(',')) return 'custom';
+      return r;
+    }
+    
+    function getFrequencyLabel(recurrence) {
+      if (!recurrence) return '❓ Unknown';
+      const r = recurrence.toLowerCase();
+      if (FREQUENCY_LABELS[r]) return FREQUENCY_LABELS[r];
+      if (r.includes(',')) {
+        const days = r.split(',').map(d => d.trim().charAt(0).toUpperCase() + d.trim().slice(1, 3));
+        return `📌 ${days.join(', ')}`;
+      }
+      return `📌 ${recurrence}`;
+    }
+    
+    async function toggleRoutine(id) {
+      try {
+        await Tasks.complete(id);
+        await loadRoutines();
+      } catch (err) {
+        alert('Failed to update routine');
+      }
+    }
+    
+    function editRoutine(id) {
+      // TODO: Implement edit modal
+      alert('Edit routine modal coming soon');
+    }
+    
+    async function deleteRoutine(id) {
+      if (!confirm('Remove this recurring task?')) return;
+      try {
+        await Tasks.delete(id);
+        await loadRoutines();
+      } catch (err) {
+        alert('Failed to delete routine');
+      }
+    }
+    
+    function renderAddRoutineModal() {
+      return `
+        <div class="modal-backdrop" id="add-routine-modal">
+          <div class="modal">
+            <div class="modal-header">
+              <h3 class="modal-title">🔄 Add Routine</h3>
+              <button class="modal-close" onclick="hideModal()">×</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">Task</label>
+                <input type="text" class="form-input" id="routine-text" placeholder="What do you want to do regularly?">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Frequency</label>
+                <div class="frequency-options" id="frequency-options">
+                  <div class="frequency-option selected" data-freq="daily">🔄 Daily</div>
+                  <div class="frequency-option" data-freq="weekdays">📅 Weekdays</div>
+                  <div class="frequency-option" data-freq="weekly">📆 Weekly</div>
+                  <div class="frequency-option" data-freq="monthly">📅 Monthly</div>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category (optional)</label>
+                <input type="text" class="form-input" id="routine-category" placeholder="e.g., Health, Work">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+              <button class="btn btn-primary" onclick="addRoutine()">Add Routine</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function showAddRoutineModal() {
+      document.getElementById('add-routine-modal').classList.add('visible');
+      document.getElementById('routine-text').focus();
+      
+      // Setup frequency selection
+      document.querySelectorAll('.frequency-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          document.querySelectorAll('.frequency-option').forEach(o => o.classList.remove('selected'));
+          opt.classList.add('selected');
+        });
+      });
+    }
+    
+    function hideModal() {
+      document.getElementById('add-routine-modal').classList.remove('visible');
+      document.getElementById('routine-text').value = '';
+      document.getElementById('routine-category').value = '';
+    }
+    
+    async function addRoutine() {
+      const text = document.getElementById('routine-text').value.trim();
+      const category = document.getElementById('routine-category').value.trim();
+      const selectedFreq = document.querySelector('.frequency-option.selected');
+      const recurrence = selectedFreq?.dataset.freq || 'daily';
+      
+      if (!text) {
+        alert('Please enter a task');
+        return;
+      }
+      
+      try {
+        await Tasks.create({
+          text,
+          category: category || null,
+          recurrence
+        });
+        hideModal();
+        await loadRoutines();
+      } catch (err) {
+        alert('Failed to create routine');
+      }
+    }
+    
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
