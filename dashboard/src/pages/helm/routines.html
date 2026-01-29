@@ -620,7 +620,7 @@
     async function loadRoutines() {
       try {
         // Use the new dedicated routines endpoint
-        const res = await api('/routines');
+        const res = await api('/api/routines');
         routinesData = res;
         
         updateStats();
@@ -830,7 +830,7 @@
         if (!confirm('This routine is already done for today. Mark as incomplete?')) return;
         try {
           // Reset the task to open status
-          await api(`/tasks/${id}`, 'PUT', { status: 'open' });
+          await apiPut(`/api/tasks/${id}`, { status: 'open' });
           await loadRoutines();
         } catch (err) {
           alert('Failed to update routine');
