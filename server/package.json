@@ -1,7 +1,7 @@
 {
   "name": "up-command-server",
   "version": "1.0.0",
-  "description": "UP Command MCP Server",
+  "description": "UP Command API Server",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
@@ -11,8 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "agents": "^0.0.1",
     "zod": "^3.23.0"
   },
   "devDependencies": {
