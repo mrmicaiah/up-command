@@ -21,6 +21,12 @@ export interface Env {
   
   // API keys
   DASHBOARD_API_KEY?: string;
+  COURIER_API_KEY?: string;
+  UP_BLOGS_API_KEY?: string;
+  UP_BLOGS_ADMIN_KEY?: string;
+  
+  // Dynamic blog API keys (per-blog)
+  [key: `BLOG_API_KEY_${string}`]: string | undefined;
 }
 
 // ==================
@@ -212,6 +218,16 @@ export interface Skill {
   version: string;
   created_at: string;
   updated_at?: string;
+}
+
+export interface Author {
+  id: string;
+  name: string;
+  slug: string;
+  bio?: string;
+  photo_url?: string;
+  email?: string;
+  created_at: string;
 }
 
 // ==================
