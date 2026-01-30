@@ -30,13 +30,9 @@ const NAV_ITEMS = [
 // Global state
 let threadSidebarOpen = true;
 let expandedMenus = new Set();
-let unreadNotifications = 0;
 
 /**
  * Initialize the global layout
- * Call this at the top of every page
- * @param {string} pageId - Current page identifier for nav highlighting
- * @param {object} options - Configuration options
  */
 function initLayout(pageId, options = {}) {
   const {
@@ -44,33 +40,30 @@ function initLayout(pageId, options = {}) {
     pageTitle = 'UP Command'
   } = options;
   
-  // Create the layout structure
   document.body.innerHTML = `
     ${renderTopBar(pageTitle)}
     <div class="layout-container">
       ${renderSidebar(pageId)}
-      <main class="main-content" id="main-content">
-        <!-- Page content will be injected here -->
-      </main>
+      <main class="main-content" id="main-content"></main>
       ${showThread ? renderThreadSidebar() : ''}
     </div>
   `;
   
-  // Inject layout styles
   injectLayoutStyles();
-  
-  // Initialize event handlers
   initNavEvents();
   
-  // Load thread if showing
   if (showThread) {
     loadThreadSidebar();
   }
   
-  // Load notifications
-  loadNotifications();
+  // Initialize notification state
+  if (localStorage.getItem('notifications_enabled') === 'true') {
+    updateNotificationIcon(true);
+    startNotificationPolling();
+  } else {
+    updateNotificationIcon(false);
+  }
   
-  // Return main content container for page to use
   return document.getElementById('main-content');
 }
 
@@ -79,6 +72,7 @@ function initLayout(pageId, options = {}) {
  */
 function renderTopBar(title) {
   const user = getCurrentUser();
+  const notificationsEnabled = localStorage.getItem('notifications_enabled') === 'true';
   
   return `
     <header class="top-bar">
@@ -93,16 +87,13 @@ function renderTopBar(title) {
       </div>
       
       <div class="top-bar-right">
-        <button class="btn btn-ghost btn-icon notification-btn" onclick="showNotifications()">
-          <span class="icon">🔔</span>
-          <span class="notification-badge" id="notification-count" style="display: none;">0</span>
+        <button class="btn btn-ghost btn-icon notification-btn" onclick="toggleNotifications()">
+          <span class="icon">${notificationsEnabled ? '🔔' : '🔕'}</span>
         </button>
         
         <div class="user-dropdown">
           <button class="user-dropdown-trigger" onclick="toggleUserDropdown()">
-            <div class="avatar avatar-sm">
-              ${user.initial}
-            </div>
+            <div class="avatar avatar-sm">${user.initial}</div>
             <span class="user-name">${user.name}</span>
             <span class="dropdown-arrow">▼</span>
           </button>
@@ -237,27 +228,17 @@ async function loadThreadSidebar() {
   if (!container) return;
   
   try {
-    // Fetch unified activity feed
     const response = await apiGet('/api/activity?limit=15');
     const items = response.data || [];
     
     if (items.length === 0) {
-      container.innerHTML = `
-        <div class="text-center p-4 text-muted text-sm">
-          No recent activity
-        </div>
-      `;
+      container.innerHTML = `<div class="text-center p-4 text-muted text-sm">No recent activity</div>`;
       return;
     }
     
     container.innerHTML = items.map(item => renderActivityItem(item)).join('');
-    
   } catch (err) {
-    container.innerHTML = `
-      <div class="text-center p-4 text-danger text-sm">
-        Failed to load activity
-      </div>
-    `;
+    container.innerHTML = `<div class="text-center p-4 text-danger text-sm">Failed to load activity</div>`;
   }
 }
 
@@ -278,9 +259,7 @@ function renderActivityItem(item) {
   
   return `
     <div class="activity-item">
-      <div class="activity-icon" style="color: ${config.color}">
-        ${config.icon}
-      </div>
+      <div class="activity-icon" style="color: ${config.color}">${config.icon}</div>
       <div class="activity-content">
         <p class="activity-text">${item.summary}</p>
         <div class="activity-meta">
@@ -305,42 +284,17 @@ function getCurrentUser() {
 }
 
 /**
- * Load notifications count
- */
-async function loadNotifications() {
-  try {
-    const response = await apiGet('/api/notifications/unread');
-    const count = response.count || 0;
-    
-    const badge = document.getElementById('notification-count');
-    if (badge) {
-      if (count > 0) {
-        badge.textContent = count > 99 ? '99+' : count;
-        badge.style.display = 'flex';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
-  } catch (err) {
-    // Silently fail - notifications are non-critical
-  }
-}
-
-/**
  * Initialize nav event handlers
  */
 function initNavEvents() {
-  // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     const dropdown = document.getElementById('user-dropdown-menu');
     const trigger = e.target.closest('.user-dropdown-trigger');
-    
     if (!trigger && dropdown) {
       dropdown.classList.remove('open');
     }
   });
   
-  // Handle keyboard navigation
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const dropdown = document.getElementById('user-dropdown-menu');
@@ -359,11 +313,6 @@ function toggleNavMenu(menuId) {
     expandedMenus.add(menuId);
   }
   
-  // Re-render sidebar
-  const sidebar = document.getElementById('sidebar');
-  const activePageId = sidebar.querySelector('.nav-link.active')?.closest('.nav-item')?.dataset?.id;
-  
-  // Find and toggle the submenu
   const navItem = document.querySelector(`.nav-item.has-children button[onclick*="${menuId}"]`)?.closest('.nav-item');
   if (navItem) {
     const submenu = navItem.querySelector('.nav-submenu');
@@ -401,7 +350,6 @@ function toggleThreadSidebar() {
     icon.textContent = threadSidebarOpen ? '→' : '←';
   }
   
-  // Save preference
   localStorage.setItem('thread_sidebar_open', threadSidebarOpen);
 }
 
@@ -416,16 +364,12 @@ function toggleMobileMenu() {
 }
 
 /**
- * Show notifications panel
- */
-/**
  * Toggle browser notifications on/off
  */
 function toggleNotifications() {
   const enabled = localStorage.getItem('notifications_enabled') === 'true';
   
   if (!enabled) {
-    // Request permission and enable
     if ('Notification' in window) {
       Notification.requestPermission().then(permission => {
         if (permission === 'granted') {
@@ -436,7 +380,6 @@ function toggleNotifications() {
       });
     }
   } else {
-    // Disable
     localStorage.setItem('notifications_enabled', 'false');
     updateNotificationIcon(false);
     stopNotificationPolling();
@@ -512,10 +455,7 @@ function formatRelativeTime(timestamp) {
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
   
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
-  });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 /**
@@ -527,14 +467,12 @@ function injectLayoutStyles() {
   const styles = document.createElement('style');
   styles.id = 'layout-styles';
   styles.textContent = `
-    /* ===== LAYOUT STRUCTURE ===== */
     .layout-container {
       display: flex;
       min-height: calc(100vh - var(--header-height));
       margin-top: var(--header-height);
     }
     
-    /* ===== TOP BAR ===== */
     .top-bar {
       position: fixed;
       top: 0;
@@ -566,13 +504,8 @@ function injectLayoutStyles() {
       color: var(--text-primary);
     }
     
-    .brand-icon {
-      font-size: var(--text-2xl);
-    }
-    
-    .mobile-menu-toggle {
-      display: none;
-    }
+    .brand-icon { font-size: var(--text-2xl); }
+    .mobile-menu-toggle { display: none; }
     
     .top-bar-right {
       display: flex;
@@ -580,31 +513,9 @@ function injectLayoutStyles() {
       gap: var(--space-2);
     }
     
-    .notification-btn {
-      position: relative;
-    }
+    .notification-btn { position: relative; }
     
-    .notification-badge {
-      position: absolute;
-      top: 2px;
-      right: 2px;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
-      background: var(--danger);
-      color: white;
-      font-size: 10px;
-      font-weight: var(--font-bold);
-      border-radius: var(--radius-full);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    /* ===== USER DROPDOWN ===== */
-    .user-dropdown {
-      position: relative;
-    }
+    .user-dropdown { position: relative; }
     
     .user-dropdown-trigger {
       display: flex;
@@ -618,9 +529,7 @@ function injectLayoutStyles() {
       transition: background var(--transition-fast);
     }
     
-    .user-dropdown-trigger:hover {
-      background: var(--bg-hover);
-    }
+    .user-dropdown-trigger:hover { background: var(--bg-hover); }
     
     .user-name {
       font-size: var(--text-sm);
@@ -683,7 +592,6 @@ function injectLayoutStyles() {
       color: var(--text-primary);
     }
     
-    /* ===== SIDEBAR ===== */
     .sidebar {
       width: var(--sidebar-width);
       background: var(--bg-secondary);
@@ -705,9 +613,7 @@ function injectLayoutStyles() {
       flex: 1;
     }
     
-    .nav-item {
-      margin-bottom: var(--space-1);
-    }
+    .nav-item { margin-bottom: var(--space-1); }
     
     .nav-divider {
       height: 1px;
@@ -742,18 +648,9 @@ function injectLayoutStyles() {
       color: var(--accent);
     }
     
-    .nav-icon {
-      font-size: var(--text-lg);
-    }
-    
-    .nav-label {
-      flex: 1;
-    }
-    
-    .nav-arrow {
-      font-size: 10px;
-      color: var(--text-muted);
-    }
+    .nav-icon { font-size: var(--text-lg); }
+    .nav-label { flex: 1; }
+    .nav-arrow { font-size: 10px; color: var(--text-muted); }
     
     .nav-submenu {
       margin-top: var(--space-1);
@@ -793,10 +690,7 @@ function injectLayoutStyles() {
       border-radius: var(--radius-md);
     }
     
-    .user-info {
-      flex: 1;
-      min-width: 0;
-    }
+    .user-info { flex: 1; min-width: 0; }
     
     .user-card .user-name {
       font-size: var(--text-sm);
@@ -819,7 +713,6 @@ function injectLayoutStyles() {
       border-radius: 50%;
     }
     
-    /* ===== MAIN CONTENT ===== */
     .main-content {
       flex: 1;
       min-width: 0;
@@ -827,7 +720,6 @@ function injectLayoutStyles() {
       overflow-y: auto;
     }
     
-    /* ===== THREAD SIDEBAR ===== */
     .thread-sidebar {
       width: 320px;
       background: var(--bg-secondary);
@@ -838,9 +730,7 @@ function injectLayoutStyles() {
       transition: width var(--transition-normal);
     }
     
-    .thread-sidebar.collapsed {
-      width: 48px;
-    }
+    .thread-sidebar.collapsed { width: 48px; }
     
     .thread-sidebar.collapsed .thread-sidebar-content,
     .thread-sidebar.collapsed .thread-sidebar-footer,
@@ -876,7 +766,6 @@ function injectLayoutStyles() {
       border-top: 1px solid var(--border);
     }
     
-    /* ===== ACTIVITY ITEMS ===== */
     .activity-item {
       display: flex;
       gap: var(--space-3);
@@ -885,23 +774,10 @@ function injectLayoutStyles() {
       transition: background var(--transition-fast);
     }
     
-    .activity-item:hover {
-      background: var(--bg-hover);
-    }
-    
-    .activity-item:last-child {
-      border-bottom: none;
-    }
-    
-    .activity-icon {
-      flex-shrink: 0;
-      font-size: var(--text-base);
-    }
-    
-    .activity-content {
-      flex: 1;
-      min-width: 0;
-    }
+    .activity-item:hover { background: var(--bg-hover); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-icon { flex-shrink: 0; font-size: var(--text-base); }
+    .activity-content { flex: 1; min-width: 0; }
     
     .activity-text {
       font-size: var(--text-sm);
@@ -917,25 +793,14 @@ function injectLayoutStyles() {
       color: var(--text-muted);
     }
     
-    /* ===== RESPONSIVE ===== */
     @media (max-width: 1024px) {
-      .thread-sidebar {
-        display: none;
-      }
+      .thread-sidebar { display: none; }
     }
     
     @media (max-width: 768px) {
-      .mobile-menu-toggle {
-        display: flex;
-      }
-      
-      .brand-text {
-        display: none;
-      }
-      
-      .user-name {
-        display: none;
-      }
+      .mobile-menu-toggle { display: flex; }
+      .brand-text { display: none; }
+      .user-name { display: none; }
       
       .sidebar {
         position: fixed;
@@ -947,13 +812,8 @@ function injectLayoutStyles() {
         z-index: var(--z-modal);
       }
       
-      .sidebar.mobile-open {
-        transform: translateX(0);
-      }
-      
-      .main-content {
-        padding: var(--space-4);
-      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .main-content { padding: var(--space-4); }
     }
   `;
   
