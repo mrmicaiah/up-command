@@ -73,6 +73,7 @@
     .priority-urgent { color: var(--danger); }
     .priority-high { color: var(--warning); }
     .priority-normal { color: var(--text-muted); }
+    .priority-low { color: var(--text-muted); opacity: 0.7; }
     
     .task-details { font-size: var(--text-xs); color: var(--text-muted); display: flex; flex-wrap: wrap; gap: var(--space-3); }
     
@@ -174,7 +175,8 @@
     
     async function loadHandoffData() {
       try {
-        const queueRes = await Handoff.queue({ limit: 200 });
+        // Fetch all tasks (increased limit to include low-priority tasks)
+        const queueRes = await Handoff.queue({ limit: 500 });
         
         // API returns { tasks: [...] }
         const tasks = queueRes.tasks || [];
@@ -196,13 +198,21 @@
           const proj = t.project_name || 'Unassigned';
           if (!projects[proj]) projects[proj] = { name: proj, tasks: [], isActive: false };
           projects[proj].tasks.push(t);
-          if (t.status !== 'complete') projects[proj].isActive = true;
+          // Project is active if it has any non-complete task (excluding cancelled)
+          if (t.status !== 'complete' && t.status !== 'cancelled') projects[proj].isActive = true;
         });
         
         projectsData = Object.values(projects);
         
+        // Sort projects: active ones with most pending/in-progress first
+        const sortProjects = (a, b) => {
+          const aActive = a.tasks.filter(t => ['pending', 'claimed', 'in_progress', 'blocked'].includes(t.status)).length;
+          const bActive = b.tasks.filter(t => ['pending', 'claimed', 'in_progress', 'blocked'].includes(t.status)).length;
+          return bActive - aActive;
+        };
+        
         // Render projects
-        const activeProjects = projectsData.filter(p => p.isActive);
+        const activeProjects = projectsData.filter(p => p.isActive).sort(sortProjects);
         const pastProjects = projectsData.filter(p => !p.isActive);
         
         document.getElementById('active-projects').innerHTML = activeProjects.length 
@@ -226,7 +236,9 @@
       const claimed = tasks.filter(t => t.status === 'claimed').length;
       const inProgress = tasks.filter(t => t.status === 'in_progress').length;
       const blocked = tasks.filter(t => t.status === 'blocked').length;
-      const progress = tasks.length ? Math.round((complete / tasks.length) * 100) : 0;
+      const cancelled = tasks.filter(t => t.status === 'cancelled').length;
+      const activeTaskCount = tasks.filter(t => t.status !== 'cancelled').length;
+      const progress = activeTaskCount ? Math.round((complete / activeTaskCount) * 100) : 0;
       
       const lastActivity = tasks.reduce((latest, t) => {
         const updated = new Date(t.updated_at || t.created_at);
@@ -248,12 +260,12 @@
             </div>
             <div class="project-progress">
               <div class="progress-bar"><div class="progress-fill" style="width: ${progress}%"></div></div>
-              <div class="progress-text">${complete} of ${tasks.length} complete (${progress}%)</div>
+              <div class="progress-text">${complete} of ${activeTaskCount} complete (${progress}%)${cancelled ? ` · ${cancelled} cancelled` : ''}</div>
             </div>
             <div class="project-meta">Last activity: ${formatRelativeTime(lastActivity)}</div>
           </div>
           <div class="project-tasks">
-            ${tasks.sort((a, b) => {
+            ${tasks.filter(t => t.status !== 'cancelled').sort((a, b) => {
               const order = { blocked: 0, in_progress: 1, claimed: 2, pending: 3, complete: 4 };
               return (order[a.status] || 5) - (order[b.status] || 5);
             }).map(t => renderTaskItem(t)).join('')}
@@ -267,7 +279,8 @@
         pending: '⏳', claimed: '🤝', in_progress: '🔧', complete: '✅', blocked: '🚫'
       };
       const priorityClass = task.priority === 'urgent' ? 'priority-urgent' : 
-                            task.priority === 'high' ? 'priority-high' : 'priority-normal';
+                            task.priority === 'high' ? 'priority-high' : 
+                            task.priority === 'low' ? 'priority-low' : 'priority-normal';
       
       return `
         <div class="task-item ${task.status} ${task.status === 'blocked' ? 'blocked' : ''} ${task.status === 'complete' ? 'complete' : ''}">
@@ -281,8 +294,8 @@
             ${task.claimed_by ? `<span>Claimed by: ${task.claimed_by}</span>` : ''}
             <span>Created: ${formatRelativeTime(task.created_at)}</span>
           </div>
-          ${task.status === 'blocked' && task.block_reason ? `
-            <div class="blocked-reason">🚫 ${escapeHtml(task.block_reason)}</div>
+          ${task.status === 'blocked' && task.blocked_reason ? `
+            <div class="blocked-reason">🚫 ${escapeHtml(task.blocked_reason)}</div>
           ` : ''}
           ${task.status === 'complete' && task.output_summary ? `
             <div class="output-summary">✅ ${escapeHtml(task.output_summary)}</div>
