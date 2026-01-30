@@ -208,8 +208,13 @@ function renderActivityItem(item, options = {}) {
   const { compact = false, showDate = true } = options;
   const config = ACTIVITY_TYPES[item.type] || { icon: '•', color: 'var(--text-muted)', label: 'Activity' };
   
+  // Add undo button for task_complete items
+  const undoButton = item.type === 'task_complete' 
+    ? `<button class="activity-undo-btn" onclick="restoreTask('${item.id}', this)" title="Restore task">Undo</button>`
+    : '';
+  
   return `
-    <div class="activity-item ${compact ? 'compact' : ''}" data-type="${item.type}">
+    <div class="activity-item ${compact ? 'compact' : ''}" data-type="${item.type}" data-id="${item.id}">
       <div class="activity-icon" style="color: ${config.color}">${config.icon}</div>
       <div class="activity-content">
         <div class="activity-main">
@@ -219,10 +224,60 @@ function renderActivityItem(item, options = {}) {
           <span class="activity-type badge badge-default">${config.label}</span>
           ${item.project ? `<span class="text-accent">${escapeHtml(item.project)}</span>` : ''}
           <span>${showDate ? formatRelativeTime(item.created_at) : formatTime(item.created_at)}</span>
+          ${undoButton}
         </div>
       </div>
     </div>
   `;
+}
+
+/**
+ * Restore a completed task back to open status
+ */
+async function restoreTask(taskId, buttonEl) {
+  const activityItem = buttonEl.closest('.activity-item');
+  
+  try {
+    // Disable button and show loading state
+    buttonEl.disabled = true;
+    buttonEl.textContent = '...';
+    
+    // Call the API to reopen the task
+    await Tasks.reopen(taskId);
+    
+    // Show success feedback
+    activityItem.style.transition = 'all 0.3s ease';
+    activityItem.style.opacity = '0.5';
+    activityItem.style.backgroundColor = 'var(--success-bg, rgba(34, 197, 94, 0.1))';
+    
+    // Update button to show success
+    buttonEl.textContent = '✓ Restored';
+    buttonEl.style.color = 'var(--success)';
+    buttonEl.style.borderColor = 'var(--success)';
+    
+    // Remove the item after a short delay
+    setTimeout(() => {
+      activityItem.style.height = activityItem.offsetHeight + 'px';
+      activityItem.style.overflow = 'hidden';
+      
+      requestAnimationFrame(() => {
+        activityItem.style.height = '0';
+        activityItem.style.padding = '0';
+        activityItem.style.margin = '0';
+        activityItem.style.opacity = '0';
+      });
+      
+      setTimeout(() => {
+        activityItem.remove();
+      }, 300);
+    }, 800);
+    
+  } catch (err) {
+    console.error('Failed to restore task:', err);
+    buttonEl.disabled = false;
+    buttonEl.textContent = 'Undo';
+    alert('Failed to restore task. Please try again.');
+  }
 }
 
 function groupActivityByDate(items) {
@@ -281,8 +336,34 @@ function injectThreadStyles() {
     .activity-content { flex: 1; min-width: 0; }
     .activity-main { margin-bottom: var(--space-2); }
     .activity-text { color: var(--text-secondary); }
-    .activity-meta { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); }
+    .activity-meta { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); align-items: center; }
     .activity-type { font-size: 10px; padding: 2px 6px; }
+    
+    /* Undo button styles */
+    .activity-undo-btn {
+      opacity: 0;
+      margin-left: auto;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    .activity-item:hover .activity-undo-btn {
+      opacity: 1;
+    }
+    .activity-undo-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+      background: var(--bg-hover);
+    }
+    .activity-undo-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   `;
   document.head.appendChild(styles);
 }
