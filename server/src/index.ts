@@ -74,6 +74,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
         if (method === 'DELETE') return json(await deleteTask(env, userId, segments[1]), cors);
       }
       if (segments[2] === 'complete' && method === 'POST') return json(await completeTask(env, segments[1]), cors);
+      if (segments[2] === 'reopen' && method === 'POST') return json(await reopenTask(env, segments[1]), cors);
       if (segments.length === 1) {
         if (method === 'GET') return json(await listTasks(env, userId, url), cors);
         if (method === 'POST') return json(await createTask(env, userId, await request.json()), cors);
@@ -334,6 +335,10 @@ async function deleteTask(env: Env, userId: string, taskId: string) {
 async function completeTask(env: Env, taskId: string) {
   const now = new Date().toISOString();
   await env.DB.prepare(`UPDATE tasks SET status = 'done', completed_at = ?, is_active = 0 WHERE id = ? OR id LIKE ?`).bind(now, taskId, `%${taskId}%`).run();
+  return { success: true };
+}
+async function reopenTask(env: Env, taskId: string) {
+  await env.DB.prepare(`UPDATE tasks SET status = 'open', completed_at = NULL WHERE id = ? OR id LIKE ?`).bind(taskId, `%${taskId}%`).run();
   return { success: true };
 }
 
