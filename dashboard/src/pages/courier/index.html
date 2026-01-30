@@ -115,11 +115,37 @@
     
     async function loadStats() {
       try {
-        const stats = await CourierAPI.stats();
-        document.getElementById('stat-subscribers').textContent = formatNumber(stats.total_subscribers || 0);
-        document.getElementById('stat-lists').textContent = stats.total_lists || 0;
-        document.getElementById('stat-campaigns').textContent = stats.campaigns_sent || 0;
-        document.getElementById('stat-open-rate').textContent = (stats.avg_open_rate || 0).toFixed(1) + '%';
+        // Fetch stats and lists/campaigns to calculate totals
+        const [stats, listsRes, campaignsRes] = await Promise.all([
+          CourierAPI.stats(),
+          CourierAPI.lists(),
+          CourierAPI.campaigns()
+        ]);
+        
+        // Calculate total subscribers from lists data
+        const lists = listsRes.lists || stats.lists || [];
+        const totalSubscribers = lists.reduce((sum, list) => sum + (list.subscribers || list.subscriber_count || 0), 0);
+        
+        // Count lists
+        const totalLists = lists.length;
+        
+        // Count sent campaigns from emails array
+        const campaigns = campaignsRes.emails || [];
+        const sentCampaigns = campaigns.filter(c => c.status === 'sent').length;
+        
+        // Calculate open rate from email stats if available
+        let avgOpenRate = 0;
+        if (stats.emails && Array.isArray(stats.emails)) {
+          // emails is [{status: 'sent', count: X}, {status: 'draft', count: Y}, ...]
+          const sentCount = stats.emails.find(e => e.status === 'sent')?.count || 0;
+          // For now, we don't have open tracking data in stats, show 0
+          avgOpenRate = 0;
+        }
+        
+        document.getElementById('stat-subscribers').textContent = formatNumber(totalSubscribers);
+        document.getElementById('stat-lists').textContent = totalLists;
+        document.getElementById('stat-campaigns').textContent = sentCampaigns;
+        document.getElementById('stat-open-rate').textContent = avgOpenRate.toFixed(1) + '%';
       } catch (err) {
         console.error('Stats error:', err);
         ['stat-subscribers', 'stat-lists', 'stat-campaigns', 'stat-open-rate'].forEach(id => {
@@ -144,11 +170,12 @@
             <div class="list-icon">📧</div>
             <div class="list-content">
               <div class="list-name">${escapeHtml(list.name)}</div>
-              <div class="list-meta">${list.subscriber_count || 0} subscribers</div>
+              <div class="list-meta">${list.subscriber_count || list.subscribers || 0} subscribers</div>
             </div>
           </div>
         `).join('');
       } catch (err) {
+        console.error('Lists error:', err);
         container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
@@ -174,6 +201,7 @@
           </div>
         `).join('');
       } catch (err) {
+        console.error('Sequences error:', err);
         container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
@@ -214,6 +242,7 @@
           </div>
         `;
       } catch (err) {
+        console.error('Campaigns error:', err);
         container.innerHTML = `<p class="text-danger text-sm p-4">Failed to load</p>`;
       }
     }
