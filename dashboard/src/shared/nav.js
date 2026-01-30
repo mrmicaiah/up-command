@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { id: 'analytics', label: 'Analytics', icon: '📊', href: '/pages/analytics/' },
   { type: 'divider' },
   { id: 'integrations', label: 'Integrations', icon: '🔌', href: '/pages/integrations/' },
+  { id: 'protected', label: 'Protected', icon: '🔒', href: '/pages/protected/' },
   { id: 'settings', label: 'Settings', icon: '⚙️', href: '/pages/settings/' }
 ];
 
