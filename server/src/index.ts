@@ -1,7 +1,7 @@
 /**
  * UP Command API Server
  * REST API for the UP Command dashboard
- * Updated: 2026-01-30 - Added Protected Repos and GitHub Repos endpoints
+ * Updated: 2026-01-30 - Deploy diagnostic for Irene worker
  */
 
 import type { Env } from './types.js';
@@ -23,7 +23,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.4', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.5', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
