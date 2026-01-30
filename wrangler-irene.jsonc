@@ -1,0 +1,20 @@
+{
+  "name": "productivity-irene",
+  "main": "server/src/index.ts",
+  "compatibility_date": "2024-05-12",
+  "compatibility_flags": ["nodejs_compat"],
+  
+  "vars": {
+    "USER_ID": "irene",
+    "TEAM": "micaiah",
+    "WORKER_NAME": "productivity-irene"
+  },
+  
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "productivity-brain",
+      "database_id": "be348cf9-552b-41ae-a1d8-cd20be25d6ee"
+    }
+  ]
+}
