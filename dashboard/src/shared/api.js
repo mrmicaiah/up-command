@@ -129,6 +129,7 @@ const Tasks = {
   update: (id, data) => apiPut(`/api/tasks/${id}`, data),
   delete: (id) => apiDelete(`/api/tasks/${id}`),
   complete: (id) => apiPost(`/api/tasks/${id}/complete`),
+  reopen: (id) => apiPost(`/api/tasks/${id}/reopen`),
   activate: (id) => apiPost(`/api/tasks/${id}/activate`),
   deactivate: (id) => apiPost(`/api/tasks/${id}/deactivate`),
   snooze: (id, until) => apiPost(`/api/tasks/${id}/snooze`, { until }),
