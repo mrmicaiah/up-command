@@ -418,9 +418,70 @@ function toggleMobileMenu() {
 /**
  * Show notifications panel
  */
-function showNotifications() {
-  // TODO: Implement notifications panel
-  console.log('Show notifications');
+/**
+ * Toggle browser notifications on/off
+ */
+function toggleNotifications() {
+  const enabled = localStorage.getItem('notifications_enabled') === 'true';
+  
+  if (!enabled) {
+    // Request permission and enable
+    if ('Notification' in window) {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          localStorage.setItem('notifications_enabled', 'true');
+          updateNotificationIcon(true);
+          startNotificationPolling();
+        }
+      });
+    }
+  } else {
+    // Disable
+    localStorage.setItem('notifications_enabled', 'false');
+    updateNotificationIcon(false);
+    stopNotificationPolling();
+  }
+}
+
+function updateNotificationIcon(enabled) {
+  const btn = document.querySelector('.notification-btn .icon');
+  if (btn) btn.textContent = enabled ? '🔔' : '🔕';
+}
+
+let notificationPollInterval = null;
+let lastCheckedAt = new Date().toISOString();
+
+function startNotificationPolling() {
+  if (notificationPollInterval) return;
+  notificationPollInterval = setInterval(checkForNewActivity, 30000);
+}
+
+function stopNotificationPolling() {
+  if (notificationPollInterval) {
+    clearInterval(notificationPollInterval);
+    notificationPollInterval = null;
+  }
+}
+
+async function checkForNewActivity() {
+  if (localStorage.getItem('notifications_enabled') !== 'true') return;
+  
+  try {
+    const response = await apiGet('/api/activity?limit=10');
+    const items = response.data || [];
+    const userId = getCurrentUser().id;
+    
+    for (const item of items) {
+      if (item.user === 'You' || item.user === userId) continue;
+      if (new Date(item.created_at) <= new Date(lastCheckedAt)) continue;
+      
+      if (['message', 'task_complete', 'checkin'].includes(item.type)) {
+        new Notification(item.user, { body: item.summary });
+      }
+    }
+    
+    lastCheckedAt = new Date().toISOString();
+  } catch (err) {}
 }
 
 /**
