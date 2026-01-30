@@ -37,6 +37,7 @@ let expandedMenus = new Set();
 function initLayout(pageId, options = {}) {
   const {
     showThread = true,
+    showChat = true,
     pageTitle = 'UP Command'
   } = options;
   
@@ -62,6 +63,11 @@ function initLayout(pageId, options = {}) {
     startNotificationPolling();
   } else {
     updateNotificationIcon(false);
+  }
+  
+  // Initialize chat widget
+  if (showChat && typeof initChatWidget === 'function') {
+    initChatWidget();
   }
   
   return document.getElementById('main-content');
