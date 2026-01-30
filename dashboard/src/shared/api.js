@@ -269,6 +269,23 @@ const Integrations = {
 };
 
 /**
+ * GitHub
+ */
+const GitHub = {
+  repos: () => apiGet('/api/github/repos')
+};
+
+/**
+ * Protected Repos
+ */
+const Protected = {
+  list: () => apiGet('/api/protected-repos'),
+  add: (repo, reason) => apiPost('/api/protected-repos', { repo, reason }),
+  update: (id, data) => apiPut(`/api/protected-repos/${id}`, data),
+  remove: (id) => apiDelete(`/api/protected-repos/${id}`)
+};
+
+/**
  * Journal
  */
 const Journal = {
@@ -325,6 +342,8 @@ if (typeof window !== 'undefined') {
   window.Team = Team;
   window.Notifications = Notifications;
   window.Integrations = Integrations;
+  window.GitHub = GitHub;
+  window.Protected = Protected;
   window.Journal = Journal;
   window.WorkSessions = WorkSessions;
   window.Stats = Stats;
