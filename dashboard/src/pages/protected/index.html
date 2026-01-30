@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Protected - UP Command</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/styles.css">
+  <style>
+    .protected-header { margin-bottom: var(--space-8); }
+    .protected-title { font-family: var(--font-display); font-size: var(--text-3xl); font-weight: var(--font-semibold); margin-bottom: var(--space-2); }
+    .protected-subtitle { color: var(--text-secondary); font-size: var(--text-base); }
+    .stats-row { display: flex; gap: var(--space-6); margin-bottom: var(--space-8); }
+    .stat-item { display: flex; align-items: center; gap: var(--space-2); }
+    .stat-value { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: var(--font-bold); }
+    .stat-label { font-size: var(--text-sm); color: var(--text-muted); }
+    .section-title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2); }
+    .repos-list { display: flex; flex-direction: column; gap: var(--space-3); }
+    .repo-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-4) var(--space-5); display: flex; align-items: center; gap: var(--space-4); transition: all var(--transition-fast); }
+    .repo-card:hover { border-color: var(--border-light); }
+    .repo-card.protected { border-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
+    .repo-icon { width: 44px; height: 44px; border-radius: var(--radius-lg); background: #24292e; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .repo-info { flex: 1; min-width: 0; }
+    .repo-name { font-weight: var(--font-semibold); font-size: var(--text-base); margin-bottom: var(--space-1); display: flex; align-items: center; gap: var(--space-2); }
+    .repo-name a { color: var(--text-primary); }
+    .repo-name a:hover { color: var(--accent); }
+    .protected-badge { font-size: var(--text-xs); padding: 2px 8px; background: var(--warning-muted); color: var(--warning); border-radius: var(--radius-full); font-weight: var(--font-medium); }
+    .repo-meta { font-size: var(--text-sm); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-3); }
+    .repo-reason { font-size: var(--text-sm); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic; }
+    .repo-actions { display: flex; align-items: center; gap: var(--space-2); }
+    .toggle-protection { position: relative; width: 44px; height: 24px; background: var(--bg-hover); border: none; border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast); }
+    .toggle-protection::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: all var(--transition-fast); }
+    .toggle-protection.active { background: var(--warning); }
+    .toggle-protection.active::after { transform: translateX(20px); }
+    .loading-state { display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-8); color: var(--text-muted); }
+    .empty-state { text-align: center; padding: var(--space-8); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
+    .empty-icon { font-size: 3rem; margin-bottom: var(--space-4); }
+    .connect-prompt { text-align: center; padding: var(--space-8); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); }
+    .connect-icon { font-size: 3rem; margin-bottom: var(--space-4); }
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 1000; padding: var(--space-4); }
+    .modal-backdrop.visible { display: flex; }
+    .modal { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); width: 100%; max-width: 450px; }
+    .modal-header { padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--border); }
+    .modal-title { font-family: var(--font-display); font-size: var(--text-xl); font-weight: var(--font-semibold); }
+    .modal-body { padding: var(--space-6); }
+    .modal-body label { display: block; font-size: var(--text-sm); font-weight: var(--font-medium); margin-bottom: var(--space-2); color: var(--text-secondary); }
+    .modal-body input, .modal-body textarea { width: 100%; padding: var(--space-3); background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--text-primary); }
+    .modal-body input:focus, .modal-body textarea:focus { outline: none; border-color: var(--accent); }
+    .modal-footer { display: flex; justify-content: flex-end; gap: var(--space-3); padding: var(--space-4) var(--space-6); border-top: 1px solid var(--border); }
+    .info-box { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); margin-bottom: var(--space-6); }
+    .info-box-title { font-weight: var(--font-semibold); margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+    .info-box p { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <script src="../../shared/api.js"></script>
+  <script src="../../shared/auth.js"></script>
+  <script src="../../shared/nav.js"></script>
+  
+  <script>
+    let allRepos = [];
+    let protectedRepos = {};
+    let githubConnected = false;
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = requireAuth();
+      if (!user) return;
+      const main = initLayout('protected', { showThread: false });
+      main.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Loading...</span></div>';
+      await loadData();
+    });
+    
+    async function loadData() {
+      try {
+        const status = await Integrations.status();
+        githubConnected = status?.services?.github || false;
+        if (!githubConnected) { renderConnectPrompt(); return; }
+        const [protectedData, reposData] = await Promise.all([apiGet('/api/protected-repos'), apiGet('/api/github/repos')]);
+        protectedRepos = {};
+        (protectedData.repos || []).forEach(r => { protectedRepos[r.repo] = r; });
+        allRepos = reposData.repos || [];
+        renderPage();
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        document.querySelector('main').innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><p>Failed to load repositories</p><button class="btn btn-secondary mt-4" onclick="loadData()">Retry</button></div>';
+      }
+    }
+    
+    function renderConnectPrompt() {
+      document.querySelector('main').innerHTML = '<header class="protected-header"><h1 class="protected-title">🔒 Protected</h1><p class="protected-subtitle">Prevent accidental writes to important repositories</p></header><div class="connect-prompt"><div class="connect-icon">🐙</div><h3>Connect GitHub</h3><p class="text-muted mt-2 mb-4">Connect your GitHub account to manage repository protection.</p><button class="btn btn-primary" onclick="connectGitHub()">Connect GitHub</button></div>';
+    }
+    
+    async function connectGitHub() {
+      try {
+        const result = await Integrations.connect('github');
+        if (result?.url) {
+          window.open(result.url, '_blank', 'width=600,height=700');
+          const checkInterval = setInterval(async () => {
+            try {
+              const status = await Integrations.status();
+              if (status?.services?.github) { clearInterval(checkInterval); await loadData(); }
+            } catch (e) {}
+          }, 2000);
+          setTimeout(() => clearInterval(checkInterval), 300000);
+        }
+      } catch (err) { console.error('Failed to connect GitHub:', err); alert('Failed to connect GitHub. Please try again.'); }
+    }
+    
+    function renderPage() {
+      const main = document.querySelector('main');
+      const protectedCount = Object.keys(protectedRepos).length;
+      const sortedRepos = [...allRepos].sort((a, b) => {
+        const aP = !!protectedRepos[a.full_name], bP = !!protectedRepos[b.full_name];
+        if (aP && !bP) return -1;
+        if (!aP && bP) return 1;
+        return a.full_name.localeCompare(b.full_name);
+      });
+      main.innerHTML = `
+        <header class="protected-header"><h1 class="protected-title">🔒 Protected</h1><p class="protected-subtitle">Prevent accidental writes to important repositories</p></header>
+        <div class="info-box"><div class="info-box-title">ℹ️ How it works</div><p>When a repository is protected, Claude's <code>github_push_file</code> and <code>github_push_files</code> tools will refuse to write to it. This prevents accidental modifications to production code or important projects.</p></div>
+        <div class="stats-row"><div class="stat-item"><span class="stat-value text-warning">${protectedCount}</span><span class="stat-label">Protected</span></div><div class="stat-item"><span class="stat-value">${allRepos.length}</span><span class="stat-label">Total Repos</span></div></div>
+        <h2 class="section-title">📁 Repositories</h2>
+        ${allRepos.length === 0 ? '<div class="empty-state"><div class="empty-icon">📭</div><p>No repositories found</p></div>' : '<div class="repos-list">' + sortedRepos.map(repo => renderRepoCard(repo)).join('') + '</div>'}
+        ${renderReasonModal()}`;
+    }
+    
+    function renderRepoCard(repo) {
+      const protection = protectedRepos[repo.full_name];
+      const isProtected = !!protection;
+      return `<div class="repo-card ${isProtected ? 'protected' : ''}" data-repo="${repo.full_name}"><div class="repo-icon">🐙</div><div class="repo-info"><div class="repo-name"><a href="https://github.com/${repo.full_name}" target="_blank">${repo.full_name}</a>${isProtected ? '<span class="protected-badge">🔒 Protected</span>' : ''}</div><div class="repo-meta">${repo.private ? '🔐 Private' : '🌐 Public'}${repo.language ? '<span>• ' + repo.language + '</span>' : ''}</div>${isProtected && protection.reason ? '<div class="repo-reason">"' + protection.reason + '"</div>' : ''}</div><div class="repo-actions">${isProtected ? '<button class="btn btn-sm btn-secondary" onclick="editReason(\'' + repo.full_name + '\')">Edit</button>' : ''}<button class="toggle-protection ${isProtected ? 'active' : ''}" onclick="toggleProtection('${repo.full_name}', ${!isProtected})" title="${isProtected ? 'Remove protection' : 'Protect this repo'}"></button></div></div>`;
+    }
+    
+    function renderReasonModal() {
+      return '<div class="modal-backdrop" id="reason-modal"><div class="modal"><div class="modal-header"><h3 class="modal-title" id="modal-title">Protect Repository</h3></div><div class="modal-body"><p class="mb-4" id="modal-repo-name"></p><label for="protection-reason">Reason (optional)</label><textarea id="protection-reason" rows="3" placeholder="e.g., Production code - do not modify without approval"></textarea></div><div class="modal-footer"><button class="btn btn-secondary" onclick="hideReasonModal()">Cancel</button><button class="btn btn-warning" id="modal-confirm-btn">Protect</button></div></div></div>';
+    }
+    
+    let pendingRepo = null, editingProtection = null;
+    
+    async function toggleProtection(repoName, shouldProtect) {
+      if (shouldProtect) {
+        pendingRepo = repoName; editingProtection = null;
+        document.getElementById('modal-title').textContent = 'Protect Repository';
+        document.getElementById('modal-repo-name').textContent = 'Repository: ' + repoName;
+        document.getElementById('protection-reason').value = '';
+        document.getElementById('modal-confirm-btn').textContent = 'Protect';
+        document.getElementById('modal-confirm-btn').onclick = confirmProtection;
+        document.getElementById('reason-modal').classList.add('visible');
+      } else {
+        try {
+          const protection = protectedRepos[repoName];
+          if (protection) { await apiDelete('/api/protected-repos/' + protection.id); delete protectedRepos[repoName]; renderPage(); }
+        } catch (err) { console.error('Failed to remove protection:', err); alert('Failed to remove protection. Please try again.'); }
+      }
+    }
+    
+    function editReason(repoName) {
+      const protection = protectedRepos[repoName];
+      if (!protection) return;
+      pendingRepo = repoName; editingProtection = protection;
+      document.getElementById('modal-title').textContent = 'Edit Protection';
+      document.getElementById('modal-repo-name').textContent = 'Repository: ' + repoName;
+      document.getElementById('protection-reason').value = protection.reason || '';
+      document.getElementById('modal-confirm-btn').textContent = 'Save';
+      document.getElementById('modal-confirm-btn').onclick = updateProtection;
+      document.getElementById('reason-modal').classList.add('visible');
+    }
+    
+    async function confirmProtection() {
+      if (!pendingRepo) return;
+      const reason = document.getElementById('protection-reason').value.trim();
+      try {
+        const result = await apiPost('/api/protected-repos', { repo: pendingRepo, reason: reason || null });
+        protectedRepos[pendingRepo] = { id: result.id, repo: pendingRepo, reason: reason || null, protected_by: 'current_user', protected_at: new Date().toISOString() };
+        hideReasonModal(); renderPage();
+      } catch (err) { console.error('Failed to protect repo:', err); alert('Failed to protect repository. Please try again.'); }
+    }
+    
+    async function updateProtection() {
+      if (!pendingRepo || !editingProtection) return;
+      const reason = document.getElementById('protection-reason').value.trim();
+      try {
+        await apiPut('/api/protected-repos/' + editingProtection.id, { reason: reason || null });
+        protectedRepos[pendingRepo].reason = reason || null;
+        hideReasonModal(); renderPage();
+      } catch (err) { console.error('Failed to update protection:', err); alert('Failed to update protection. Please try again.'); }
+    }
+    
+    function hideReasonModal() { document.getElementById('reason-modal').classList.remove('visible'); pendingRepo = null; editingProtection = null; }
+  </script>
+</body>
+</html>
