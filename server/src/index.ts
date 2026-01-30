@@ -1,7 +1,7 @@
 /**
  * UP Command API Server
  * REST API for the UP Command dashboard
- * Updated: 2026-01-30 - Deploy diagnostic for Irene worker
+ * Updated: 2026-01-30 - Fix sendMessage expires_at constraint
  */
 
 import type { Env } from './types.js';
@@ -23,7 +23,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.6', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.7', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -645,7 +645,11 @@ async function listMessages(env: Env, userId: string, url: URL) {
 async function sendMessage(env: Env, userId: string, data: any) {
   const id = `msg-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO messages (id, from_user, to_user, content, created_at) VALUES (?, ?, ?, ?, ?)`).bind(id, userId, data.to, data.content, now).run();
+  // Messages expire after 30 days
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.DB.prepare(
+    `INSERT INTO messages (id, from_user, to_user, content, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, userId, data.to, data.content, now, expiresAt).run();
   return { id, success: true };
 }
 
