@@ -23,7 +23,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.5', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.6', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
