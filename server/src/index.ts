@@ -1,7 +1,7 @@
 /**
  * UP Command API Server
  * REST API for the UP Command dashboard
- * Updated: 2026-01-29 - Added Google Analytics Admin API
+ * Updated: 2026-01-30 - Added Protected Repos and GitHub Repos endpoints
  */
 
 import type { Env } from './types.js';
@@ -23,7 +23,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.3', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.4', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -80,7 +80,7 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       }
     }
 
-    // ROUTINES - dedicated endpoint with proper logic
+    // ROUTINES
     if (segments[0] === 'routines') {
       if (method === 'GET') return json(await getRoutines(env, userId), cors);
     }
@@ -95,18 +95,18 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       }
     }
 
-    // ACTIVITY (for Thread page - uses 'types' param and returns 'data' array)
+    // ACTIVITY
     if (segments[0] === 'activity') {
       if (segments.length === 1 && method === 'GET') return json(await getActivityForDashboard(env, userId, url), cors);
     }
 
-    // THREAD (Activity Feed - legacy endpoint)
+    // THREAD
     if (segments[0] === 'thread') {
       if (segments[1] === 'unread-count' && method === 'GET') return json(await getUnreadCount(env, userId), cors);
       if (segments.length === 1 && method === 'GET') return json(await getActivityFeed(env, userId, url), cors);
     }
 
-    // NOTIFICATIONS (stub - returns 0)
+    // NOTIFICATIONS
     if (segments[0] === 'notifications') {
       if (segments[1] === 'unread' && method === 'GET') return json({ count: 0 }, cors);
       if (segments.length === 1 && method === 'GET') return json({ notifications: [] }, cors);
@@ -135,36 +135,28 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       return json(await getIntegrationStatus(env, userId), cors);
     }
 
-    // ANALYTICS - Full GA4 integration with Admin API
+    // ANALYTICS
     if (segments[0] === 'analytics') {
-      // Admin: List GA4 accounts from Google
       if (segments[1] === 'accounts' && method === 'GET') {
         return json(await listAnalyticsAccounts(env, userId), cors);
       }
-      // Admin: List available properties from Google (not yet added locally)
       if (segments[1] === 'available' && method === 'GET') {
         return json(await listAvailableProperties(env, userId), cors);
       }
-      // Properties CRUD
       if (segments[1] === 'properties') {
-        // GET /analytics/properties - list configured properties
         if (segments.length === 2 && method === 'GET') {
           return json(await getAnalyticsProperties(env, userId), cors);
         }
-        // POST /analytics/properties - add a new property
         if (segments.length === 2 && method === 'POST') {
           return json(await addAnalyticsProperty(env, userId, await request.json()), cors);
         }
-        // PUT /analytics/properties/:id - update a property
         if (segments.length === 3 && method === 'PUT') {
           return json(await updateAnalyticsProperty(env, userId, segments[2], await request.json()), cors);
         }
-        // DELETE /analytics/properties/:id - remove a property
         if (segments.length === 3 && method === 'DELETE') {
           return json(await deleteAnalyticsProperty(env, userId, segments[2]), cors);
         }
       }
-      // Reporting endpoints
       if (segments[1] === 'report' && method === 'GET') {
         return json(await getAnalyticsReport(env, userId, url), cors);
       }
@@ -185,6 +177,23 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
     // STATS
     if (segments[0] === 'stats' && segments[1] === 'overview' && method === 'GET') {
       return json(await getStatsOverview(env, userId), cors);
+    }
+
+    // PROTECTED REPOS
+    if (segments[0] === 'protected-repos') {
+      if (segments.length === 1) {
+        if (method === 'GET') return json(await listProtectedRepos(env, userId), cors);
+        if (method === 'POST') return json(await addProtectedRepo(env, userId, await request.json()), cors);
+      }
+      if (segments.length === 2) {
+        if (method === 'PUT') return json(await updateProtectedRepo(env, userId, segments[1], await request.json()), cors);
+        if (method === 'DELETE') return json(await deleteProtectedRepo(env, userId, segments[1]), cors);
+      }
+    }
+
+    // GITHUB
+    if (segments[0] === 'github') {
+      if (segments[1] === 'repos' && method === 'GET') return json(await listGitHubRepos(env, userId), cors);
     }
 
     return json({ error: 'Not found', path }, cors, 404);
@@ -208,14 +217,11 @@ async function getValidToken(env: Env, userId: string, provider: string = 'googl
   
   if (!token) return null;
   
-  // GitHub tokens don't expire the same way
   if (provider === 'github') {
     return token.access_token;
   }
   
-  // Check if token is expired
   if (token.expires_at && new Date(token.expires_at) < new Date()) {
-    // Refresh the token
     const response = await fetch(GOOGLE_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -322,10 +328,7 @@ async function deleteTask(env: Env, userId: string, taskId: string) {
     `DELETE FROM tasks WHERE (id = ? OR id LIKE ?) AND user_id = ?`
   ).bind(taskId, `%${taskId}%`, userId).run();
   
-  return { 
-    success: true, 
-    deleted: result.meta?.changes || 0 
-  };
+  return { success: true, deleted: result.meta?.changes || 0 };
 }
 
 async function completeTask(env: Env, taskId: string) {
@@ -353,7 +356,6 @@ async function getRoutines(env: Env, userId: string) {
   function isDueToday(recurrence: string): boolean {
     if (!recurrence) return false;
     const r = recurrence.toLowerCase();
-    
     if (r === 'daily') return true;
     if (r === 'weekdays' && dayOfWeek >= 1 && dayOfWeek <= 5) return true;
     if (r === 'weekly') return true;
@@ -361,12 +363,10 @@ async function getRoutines(env: Env, userId: string) {
     if (r === 'monthly') return true;
     if (r === 'yearly') return true;
     if (r === todayName) return true;
-    
     if (r.includes(',')) {
       const days = r.split(',').map(d => d.trim().toLowerCase());
       return days.includes(todayName);
     }
-    
     return false;
   }
   
@@ -382,47 +382,22 @@ async function getRoutines(env: Env, userId: string) {
   allRoutines.forEach((routine: any) => {
     const dueToday = isDueToday(routine.recurrence);
     const completedToday = isCompletedToday(routine.completed_at);
-    
     routine.due_today = dueToday;
     routine.completed_today = completedToday;
-    
     if (dueToday) {
       todayRoutines.push(routine);
-      if (completedToday) {
-        doneToday++;
-      } else {
-        remaining++;
-      }
+      if (completedToday) { doneToday++; } else { remaining++; }
     }
   });
   
   const historyResult = await env.DB.prepare(
-    `SELECT date(completed_at) as date, COUNT(*) as count 
-     FROM tasks 
-     WHERE user_id = ? 
-       AND recurrence IS NOT NULL AND recurrence != ''
-       AND completed_at IS NOT NULL 
-       AND date(completed_at) >= date('now', '-28 days')
-     GROUP BY date(completed_at)
-     ORDER BY date DESC`
+    `SELECT date(completed_at) as date, COUNT(*) as count FROM tasks WHERE user_id = ? AND recurrence IS NOT NULL AND recurrence != '' AND completed_at IS NOT NULL AND date(completed_at) >= date('now', '-28 days') GROUP BY date(completed_at) ORDER BY date DESC`
   ).bind(userId).all();
   
   const completionHistory: Record<string, number> = {};
-  (historyResult.results || []).forEach((row: any) => {
-    completionHistory[row.date] = row.count;
-  });
+  (historyResult.results || []).forEach((row: any) => { completionHistory[row.date] = row.count; });
   
-  return {
-    all: allRoutines,
-    today: todayRoutines,
-    stats: {
-      total: allRoutines.length,
-      doneToday,
-      remaining,
-      todayTotal: todayRoutines.length
-    },
-    completionHistory
-  };
+  return { all: allRoutines, today: todayRoutines, stats: { total: allRoutines.length, doneToday, remaining, todayTotal: todayRoutines.length }, completionHistory };
 }
 
 // ==================
@@ -437,22 +412,15 @@ async function getCurrentSprint(env: Env, userId: string) {
   try {
     const sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`).bind(userId).first();
     if (!sprint) return { sprint: null, objectives: [], tasks: [] };
-
     const objectivesResult = await env.DB.prepare(`SELECT * FROM objectives WHERE sprint_id = ? ORDER BY sort_order ASC`).bind((sprint as any).id).all();
     const objectives = objectivesResult.results || [];
-
     const allTasks: any[] = [];
-    
     if (objectives.length > 0) {
       const objectiveIds = objectives.map((o: any) => o.id);
       const placeholders = objectiveIds.map(() => '?').join(',');
-      const tasksResult = await env.DB.prepare(
-        `SELECT * FROM tasks WHERE user_id = ? AND objective_id IN (${placeholders}) ORDER BY status ASC, is_active DESC, priority DESC`
-      ).bind(userId, ...objectiveIds).all();
-      
+      const tasksResult = await env.DB.prepare(`SELECT * FROM tasks WHERE user_id = ? AND objective_id IN (${placeholders}) ORDER BY status ASC, is_active DESC, priority DESC`).bind(userId, ...objectiveIds).all();
       allTasks.push(...(tasksResult.results || []));
     }
-
     return { sprint, objectives, tasks: allTasks };
   } catch (e: any) {
     console.error('getCurrentSprint error:', e);
@@ -480,125 +448,84 @@ async function updateSprint(env: Env, sprintId: string, data: any) {
 }
 
 // ==================
-// ACTIVITY FEED (for Dashboard Thread page)
+// ACTIVITY FEED
 // ==================
-interface DashboardActivityItem {
-  id: string;
-  type: string;
-  user: string;
-  created_at: string;
-  summary?: string;
-  narrative?: string;
-  full_recap?: string;
-  project?: string;
-  shipped?: string[];
-  unread?: boolean;
-}
+interface DashboardActivityItem { id: string; type: string; user: string; created_at: string; summary?: string; narrative?: string; full_recap?: string; project?: string; shipped?: string[]; unread?: boolean; }
 
 async function getActivityForDashboard(env: Env, userId: string, url: URL) {
   const limit = parseInt(url.searchParams.get('limit') || '30');
   const offset = parseInt(url.searchParams.get('offset') || '0');
   const typesParam = url.searchParams.get('types');
   const search = url.searchParams.get('search');
-  
   const allowedTypes = typesParam ? typesParam.split(',').map(t => t.trim()) : null;
   const items: DashboardActivityItem[] = [];
 
-  // Check-ins
   if (!allowedTypes || allowedTypes.includes('checkin')) {
     try {
       let sql = `SELECT id, user_id, project_name, thread_summary, full_recap, created_at FROM check_ins WHERE user_id = ?`;
       const params: any[] = [userId];
       if (search) { sql += ` AND (thread_summary LIKE ? OR full_recap LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-      sql += ` ORDER BY created_at DESC LIMIT ?`;
-      params.push(limit * 2);
-      
+      sql += ` ORDER BY created_at DESC LIMIT ?`; params.push(limit * 2);
       const checkins = await env.DB.prepare(sql).bind(...params).all();
-      (checkins.results || []).forEach((r: any) => items.push({
-        id: r.id, type: 'checkin', user: r.user_id === userId ? 'You' : r.user_id,
-        created_at: r.created_at, summary: r.thread_summary, full_recap: r.full_recap, project: r.project_name
-      }));
+      (checkins.results || []).forEach((r: any) => items.push({ id: r.id, type: 'checkin', user: r.user_id === userId ? 'You' : r.user_id, created_at: r.created_at, summary: r.thread_summary, full_recap: r.full_recap, project: r.project_name }));
     } catch (e) { console.error('checkins error:', e); }
   }
 
-  // Work Logs
   if (!allowedTypes || allowedTypes.includes('worklog')) {
     try {
       let sql = `SELECT id, user_id, narrative, shipped, created_at FROM work_logs WHERE user_id = ?`;
       const params: any[] = [userId];
       if (search) { sql += ` AND narrative LIKE ?`; params.push(`%${search}%`); }
-      sql += ` ORDER BY created_at DESC LIMIT ?`;
-      params.push(limit * 2);
-      
+      sql += ` ORDER BY created_at DESC LIMIT ?`; params.push(limit * 2);
       const worklogs = await env.DB.prepare(sql).bind(...params).all();
       (worklogs.results || []).forEach((r: any) => {
         let shipped: string[] = [];
         try { shipped = r.shipped ? JSON.parse(r.shipped) : []; } catch (e) {}
-        items.push({ id: r.id, type: 'worklog', user: r.user_id === userId ? 'You' : r.user_id,
-          created_at: r.created_at, narrative: r.narrative, shipped });
+        items.push({ id: r.id, type: 'worklog', user: r.user_id === userId ? 'You' : r.user_id, created_at: r.created_at, narrative: r.narrative, shipped });
       });
     } catch (e) { console.error('worklogs error:', e); }
   }
 
-  // Task completions
   if (!allowedTypes || allowedTypes.includes('task_complete')) {
     try {
       let sql = `SELECT id, user_id, text, project, category, completed_at FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at IS NOT NULL`;
       const params: any[] = [userId];
       if (search) { sql += ` AND text LIKE ?`; params.push(`%${search}%`); }
-      sql += ` ORDER BY completed_at DESC LIMIT ?`;
-      params.push(limit * 2);
-      
+      sql += ` ORDER BY completed_at DESC LIMIT ?`; params.push(limit * 2);
       const tasks = await env.DB.prepare(sql).bind(...params).all();
-      (tasks.results || []).forEach((r: any) => items.push({
-        id: r.id, type: 'task_complete', user: r.user_id === userId ? 'You' : r.user_id,
-        created_at: r.completed_at, summary: r.text, project: r.project || r.category
-      }));
+      (tasks.results || []).forEach((r: any) => items.push({ id: r.id, type: 'task_complete', user: r.user_id === userId ? 'You' : r.user_id, created_at: r.completed_at, summary: r.text, project: r.project || r.category }));
     } catch (e) { console.error('tasks error:', e); }
   }
 
-  // Messages
   if (!allowedTypes || allowedTypes.includes('message')) {
     try {
       let sql = `SELECT id, from_user, to_user, content, read_at, created_at FROM messages WHERE to_user = ?`;
       const params: any[] = [userId];
       if (search) { sql += ` AND content LIKE ?`; params.push(`%${search}%`); }
-      sql += ` ORDER BY created_at DESC LIMIT ?`;
-      params.push(limit * 2);
-      
+      sql += ` ORDER BY created_at DESC LIMIT ?`; params.push(limit * 2);
       const messages = await env.DB.prepare(sql).bind(...params).all();
-      (messages.results || []).forEach((r: any) => items.push({
-        id: r.id, type: 'message', user: r.from_user,
-        created_at: r.created_at, summary: r.content, unread: !r.read_at
-      }));
+      (messages.results || []).forEach((r: any) => items.push({ id: r.id, type: 'message', user: r.from_user, created_at: r.created_at, summary: r.content, unread: !r.read_at }));
     } catch (e) { console.error('messages error:', e); }
   }
 
-  // Handoffs
   const handoffTypes = ['handoff_created', 'handoff_complete', 'handoff_blocked', 'handoff_claimed'];
   if (!allowedTypes || handoffTypes.some(t => allowedTypes.includes(t))) {
     try {
       let sql = `SELECT id, instruction, output_summary, project_name, status, created_by, claimed_by, created_at, claimed_at, completed_at FROM handoff_queue WHERE created_by = ? OR claimed_by = ?`;
       const params: any[] = [userId, userId];
       if (search) { sql += ` AND (instruction LIKE ? OR output_summary LIKE ?)`; params.push(`%${search}%`, `%${search}%`); }
-      sql += ` ORDER BY created_at DESC LIMIT ?`;
-      params.push(limit * 2);
-      
+      sql += ` ORDER BY created_at DESC LIMIT ?`; params.push(limit * 2);
       const handoffs = await env.DB.prepare(sql).bind(...params).all();
       (handoffs.results || []).forEach((r: any) => {
         if (r.status === 'complete' && r.completed_at && (!allowedTypes || allowedTypes.includes('handoff_complete'))) {
-          items.push({ id: r.id + '-complete', type: 'handoff_complete', user: r.claimed_by === userId ? 'You' : r.claimed_by,
-            created_at: r.completed_at, summary: r.output_summary || r.instruction, project: r.project_name });
+          items.push({ id: r.id + '-complete', type: 'handoff_complete', user: r.claimed_by === userId ? 'You' : r.claimed_by, created_at: r.completed_at, summary: r.output_summary || r.instruction, project: r.project_name });
         } else if (r.status === 'blocked' && (!allowedTypes || allowedTypes.includes('handoff_blocked'))) {
-          items.push({ id: r.id + '-blocked', type: 'handoff_blocked', user: r.claimed_by === userId ? 'You' : r.claimed_by,
-            created_at: r.claimed_at || r.created_at, summary: r.instruction, project: r.project_name });
+          items.push({ id: r.id + '-blocked', type: 'handoff_blocked', user: r.claimed_by === userId ? 'You' : r.claimed_by, created_at: r.claimed_at || r.created_at, summary: r.instruction, project: r.project_name });
         } else if (r.claimed_by && r.claimed_at && (!allowedTypes || allowedTypes.includes('handoff_claimed'))) {
-          items.push({ id: r.id + '-claimed', type: 'handoff_claimed', user: r.claimed_by === userId ? 'You' : r.claimed_by,
-            created_at: r.claimed_at, summary: r.instruction, project: r.project_name });
+          items.push({ id: r.id + '-claimed', type: 'handoff_claimed', user: r.claimed_by === userId ? 'You' : r.claimed_by, created_at: r.claimed_at, summary: r.instruction, project: r.project_name });
         }
         if (!allowedTypes || allowedTypes.includes('handoff_created')) {
-          items.push({ id: r.id + '-created', type: 'handoff_created', user: r.created_by === userId ? 'You' : r.created_by,
-            created_at: r.created_at, summary: r.instruction, project: r.project_name });
+          items.push({ id: r.id + '-created', type: 'handoff_created', user: r.created_by === userId ? 'You' : r.created_by, created_at: r.created_at, summary: r.instruction, project: r.project_name });
         }
       });
     } catch (e) { console.error('handoffs error:', e); }
@@ -609,7 +536,7 @@ async function getActivityForDashboard(env: Env, userId: string, url: URL) {
 }
 
 // ==================
-// THREAD (Legacy Activity Feed)
+// THREAD (Legacy)
 // ==================
 interface ActivityItem { id: string; type: string; user: string; timestamp: string; summary: string; data: any; }
 
@@ -730,12 +657,7 @@ async function getMessageUnreadCount(env: Env, userId: string) {
 async function getIntegrationStatus(env: Env, userId: string) {
   try {
     const tokens = await env.DB.prepare(`SELECT provider, expires_at FROM oauth_tokens WHERE user_id = ?`).bind(userId).all();
-    const services: Record<string, boolean> = { 
-      google_drive: false, gmail_personal: false, gmail_company: false, 
-      blogger_personal: false, blogger_company: false, github: false,
-      google_analytics: false, google_contacts_personal: false, google_contacts_company: false,
-      cloudinary: true
-    };
+    const services: Record<string, boolean> = { google_drive: false, gmail_personal: false, gmail_company: false, blogger_personal: false, blogger_company: false, github: false, google_analytics: false, google_contacts_personal: false, google_contacts_company: false, cloudinary: true };
     (tokens.results || []).forEach((t: any) => { services[t.provider] = true; });
     return { services };
   } catch (e) { return { services: {} }; }
@@ -744,153 +666,68 @@ async function getIntegrationStatus(env: Env, userId: string) {
 // ==================
 // ANALYTICS ADMIN API
 // ==================
-
-// List GA4 account summaries from Google
 async function listAnalyticsAccounts(env: Env, userId: string) {
   const token = await getValidToken(env, userId, 'google_analytics');
-  if (!token) {
-    return { accounts: [], error: 'Google Analytics not connected', needsConnection: true };
-  }
-
+  if (!token) { return { accounts: [], error: 'Google Analytics not connected', needsConnection: true }; }
   try {
-    const response = await fetch(`${ANALYTICS_ADMIN_API}/accountSummaries`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return { accounts: [], error: `GA4 Admin API error: ${error}` };
-    }
-
+    const response = await fetch(`${ANALYTICS_ADMIN_API}/accountSummaries`, { headers: { 'Authorization': `Bearer ${token}` } });
+    if (!response.ok) { const error = await response.text(); return { accounts: [], error: `GA4 Admin API error: ${error}` }; }
     const data: any = await response.json();
     const accounts = (data.accountSummaries || []).map((account: any) => ({
-      name: account.name,
-      displayName: account.displayName,
-      account: account.account,
-      properties: (account.propertySummaries || []).map((prop: any) => ({
-        property: prop.property,
-        displayName: prop.displayName,
-        propertyType: prop.propertyType,
-        // Extract just the numeric ID from "properties/123456789"
-        propertyId: prop.property?.replace('properties/', '')
-      }))
+      name: account.name, displayName: account.displayName, account: account.account,
+      properties: (account.propertySummaries || []).map((prop: any) => ({ property: prop.property, displayName: prop.displayName, propertyType: prop.propertyType, propertyId: prop.property?.replace('properties/', '') }))
     }));
-
     return { accounts };
-  } catch (e: any) {
-    return { accounts: [], error: e.message };
-  }
+  } catch (e: any) { return { accounts: [], error: e.message }; }
 }
 
-// List available properties from Google that aren't already added locally
 async function listAvailableProperties(env: Env, userId: string) {
-  // Get all properties from Google
   const accountsResult = await listAnalyticsAccounts(env, userId);
-  if (accountsResult.error) {
-    return { properties: [], error: accountsResult.error };
-  }
-
-  // Get locally configured properties
-  const localProps = await env.DB.prepare(
-    'SELECT property_id FROM analytics_properties WHERE user_id = ?'
-  ).bind(userId).all();
+  if (accountsResult.error) { return { properties: [], error: accountsResult.error }; }
+  const localProps = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ?').bind(userId).all();
   const configuredIds = new Set((localProps.results || []).map((p: any) => p.property_id));
-
-  // Flatten and filter
   const availableProperties: any[] = [];
   for (const account of accountsResult.accounts) {
     for (const prop of account.properties || []) {
       if (!configuredIds.has(prop.propertyId)) {
-        availableProperties.push({
-          propertyId: prop.propertyId,
-          displayName: prop.displayName,
-          propertyType: prop.propertyType,
-          accountName: account.displayName
-        });
+        availableProperties.push({ propertyId: prop.propertyId, displayName: prop.displayName, propertyType: prop.propertyType, accountName: account.displayName });
       }
     }
   }
-
   return { properties: availableProperties };
 }
 
-// Get configured analytics properties (local database)
 async function getAnalyticsProperties(env: Env, userId: string) {
   try {
     const token = await getValidToken(env, userId, 'google_analytics');
-    if (!token) {
-      return { properties: [], error: 'Google Analytics not connected', needsConnection: true };
-    }
-    
-    const properties = await env.DB.prepare(
-      'SELECT * FROM analytics_properties WHERE user_id = ? ORDER BY name'
-    ).bind(userId).all();
-    
-    return { 
-      properties: (properties.results || []).map((p: any) => ({
-        id: p.id,
-        property_id: p.property_id,
-        name: p.name,
-        blog_id: p.blog_id,
-        created_at: p.created_at
-      }))
-    };
-  } catch (e: any) {
-    return { properties: [], error: e.message };
-  }
+    if (!token) { return { properties: [], error: 'Google Analytics not connected', needsConnection: true }; }
+    const properties = await env.DB.prepare('SELECT * FROM analytics_properties WHERE user_id = ? ORDER BY name').bind(userId).all();
+    return { properties: (properties.results || []).map((p: any) => ({ id: p.id, property_id: p.property_id, name: p.name, blog_id: p.blog_id, created_at: p.created_at })) };
+  } catch (e: any) { return { properties: [], error: e.message }; }
 }
 
-// Add a new analytics property to track
 async function addAnalyticsProperty(env: Env, userId: string, data: any) {
-  if (!data.property_id || !data.name) {
-    return { error: 'property_id and name are required' };
-  }
-
-  // Check if already exists
-  const existing = await env.DB.prepare(
-    'SELECT id FROM analytics_properties WHERE user_id = ? AND property_id = ?'
-  ).bind(userId, data.property_id).first();
-
-  if (existing) {
-    return { error: 'Property already configured' };
-  }
-
+  if (!data.property_id || !data.name) { return { error: 'property_id and name are required' }; }
+  const existing = await env.DB.prepare('SELECT id FROM analytics_properties WHERE user_id = ? AND property_id = ?').bind(userId, data.property_id).first();
+  if (existing) { return { error: 'Property already configured' }; }
   const id = `ga-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
-
-  await env.DB.prepare(
-    'INSERT INTO analytics_properties (id, user_id, property_id, name, blog_id, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).bind(id, userId, data.property_id, data.name, data.blog_id || null, now).run();
-
+  await env.DB.prepare('INSERT INTO analytics_properties (id, user_id, property_id, name, blog_id, created_at) VALUES (?, ?, ?, ?, ?, ?)').bind(id, userId, data.property_id, data.name, data.blog_id || null, now).run();
   return { id, success: true };
 }
 
-// Update an analytics property
 async function updateAnalyticsProperty(env: Env, userId: string, propertyDbId: string, data: any) {
-  const fields: string[] = [];
-  const params: any[] = [];
-
+  const fields: string[] = [], params: any[] = [];
   if (data.name !== undefined) { fields.push('name = ?'); params.push(data.name); }
   if (data.blog_id !== undefined) { fields.push('blog_id = ?'); params.push(data.blog_id || null); }
-
-  if (fields.length === 0) {
-    return { error: 'No valid fields to update' };
-  }
-
+  if (fields.length === 0) { return { error: 'No valid fields to update' }; }
   params.push(userId, propertyDbId);
-  await env.DB.prepare(
-    `UPDATE analytics_properties SET ${fields.join(', ')} WHERE user_id = ? AND id = ?`
-  ).bind(...params).run();
-
+  await env.DB.prepare(`UPDATE analytics_properties SET ${fields.join(', ')} WHERE user_id = ? AND id = ?`).bind(...params).run();
   return { success: true };
 }
 
-// Delete an analytics property
 async function deleteAnalyticsProperty(env: Env, userId: string, propertyDbId: string) {
-  const result = await env.DB.prepare(
-    'DELETE FROM analytics_properties WHERE user_id = ? AND id = ?'
-  ).bind(userId, propertyDbId).run();
-
+  const result = await env.DB.prepare('DELETE FROM analytics_properties WHERE user_id = ? AND id = ?').bind(userId, propertyDbId).run();
   return { success: true, deleted: result.meta?.changes || 0 };
 }
 
@@ -900,259 +737,99 @@ async function deleteAnalyticsProperty(env: Env, userId: string, propertyDbId: s
 async function getAnalyticsReport(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
   const days = parseInt(url.searchParams.get('days') || '7');
-  
   let propId = propertyId;
-  if (!propId) {
-    const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any;
-    if (prop) propId = prop.property_id;
-  }
-  
+  if (!propId) { const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any; if (prop) propId = prop.property_id; }
   if (!propId) return { error: 'No GA4 property configured', needsProperty: true };
-  
   const token = await getValidToken(env, userId, 'google_analytics');
   if (!token) return { error: 'Google Analytics not connected', needsConnection: true };
-  
   try {
     const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dateRanges: [
-          { startDate: `${days}daysAgo`, endDate: 'today' },
-          { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` }
-        ],
-        dimensions: [{ name: 'date' }],
-        metrics: [
-          { name: 'activeUsers' }, { name: 'screenPageViews' },
-          { name: 'sessions' }, { name: 'averageSessionDuration' }
-        ],
-        orderBys: [{ dimension: { orderType: 'ALPHANUMERIC', dimensionName: 'date' } }]
-      })
+      method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }, { startDate: `${days * 2}daysAgo`, endDate: `${days + 1}daysAgo` }], dimensions: [{ name: 'date' }], metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }, { name: 'sessions' }, { name: 'averageSessionDuration' }], orderBys: [{ dimension: { orderType: 'ALPHANUMERIC', dimensionName: 'date' } }] })
     });
-    
     if (!response.ok) return { error: `GA4 API error: ${await response.text()}` };
-    
     const data: any = await response.json();
-    let users = 0, pageViews = 0, sessions = 0, totalDuration = 0;
-    let prevUsers = 0, prevPageViews = 0, prevSessions = 0, prevDuration = 0;
+    let users = 0, pageViews = 0, sessions = 0, totalDuration = 0, prevUsers = 0, prevPageViews = 0, prevSessions = 0, prevDuration = 0;
     const daily: any[] = [];
-    
     if (data.rows) {
       for (const row of data.rows) {
-        const rowUsers = parseFloat(row.metricValues[0]?.value || 0);
-        const rowViews = parseFloat(row.metricValues[1]?.value || 0);
-        const rowSessions = parseFloat(row.metricValues[2]?.value || 0);
-        const rowDuration = parseFloat(row.metricValues[3]?.value || 0);
+        const rowUsers = parseFloat(row.metricValues[0]?.value || 0), rowViews = parseFloat(row.metricValues[1]?.value || 0), rowSessions = parseFloat(row.metricValues[2]?.value || 0), rowDuration = parseFloat(row.metricValues[3]?.value || 0);
         const dateStr = row.dimensionValues[0]?.value;
-        
         if (dateStr) {
           const date = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-          const rowDate = new Date(date);
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - days);
-          
-          if (rowDate >= cutoffDate) {
-            users += rowUsers; pageViews += rowViews; sessions += rowSessions;
-            totalDuration += rowDuration * rowSessions;
-            daily.push({ date, users: Math.round(rowUsers), pageViews: Math.round(rowViews), sessions: Math.round(rowSessions) });
-          } else {
-            prevUsers += rowUsers; prevPageViews += rowViews; prevSessions += rowSessions;
-            prevDuration += rowDuration * rowSessions;
-          }
+          const rowDate = new Date(date), cutoffDate = new Date(); cutoffDate.setDate(cutoffDate.getDate() - days);
+          if (rowDate >= cutoffDate) { users += rowUsers; pageViews += rowViews; sessions += rowSessions; totalDuration += rowDuration * rowSessions; daily.push({ date, users: Math.round(rowUsers), pageViews: Math.round(rowViews), sessions: Math.round(rowSessions) }); }
+          else { prevUsers += rowUsers; prevPageViews += rowViews; prevSessions += rowSessions; prevDuration += rowDuration * rowSessions; }
         }
       }
     }
-    
-    const usersChange = prevUsers > 0 ? ((users - prevUsers) / prevUsers) * 100 : 0;
-    const pageViewsChange = prevPageViews > 0 ? ((pageViews - prevPageViews) / prevPageViews) * 100 : 0;
-    const sessionsChange = prevSessions > 0 ? ((sessions - prevSessions) / prevSessions) * 100 : 0;
-    const avgDuration = sessions > 0 ? totalDuration / sessions : 0;
-    const prevAvgDuration = prevSessions > 0 ? prevDuration / prevSessions : 0;
-    const durationChange = prevAvgDuration > 0 ? ((avgDuration - prevAvgDuration) / prevAvgDuration) * 100 : 0;
-    
-    return {
-      users: Math.round(users), pageViews: Math.round(pageViews), sessions: Math.round(sessions),
-      avgSessionDuration: avgDuration, usersChange, pageViewsChange, sessionsChange, durationChange,
-      daily: daily.sort((a, b) => a.date.localeCompare(b.date))
-    };
+    const usersChange = prevUsers > 0 ? ((users - prevUsers) / prevUsers) * 100 : 0, pageViewsChange = prevPageViews > 0 ? ((pageViews - prevPageViews) / prevPageViews) * 100 : 0, sessionsChange = prevSessions > 0 ? ((sessions - prevSessions) / prevSessions) * 100 : 0;
+    const avgDuration = sessions > 0 ? totalDuration / sessions : 0, prevAvgDuration = prevSessions > 0 ? prevDuration / prevSessions : 0, durationChange = prevAvgDuration > 0 ? ((avgDuration - prevAvgDuration) / prevAvgDuration) * 100 : 0;
+    return { users: Math.round(users), pageViews: Math.round(pageViews), sessions: Math.round(sessions), avgSessionDuration: avgDuration, usersChange, pageViewsChange, sessionsChange, durationChange, daily: daily.sort((a, b) => a.date.localeCompare(b.date)) };
   } catch (e: any) { return { error: e.message }; }
 }
 
 async function getAnalyticsRealtime(env: Env, userId: string, url: URL) {
   const propertyId = url.searchParams.get('property_id');
   let propId = propertyId;
-  if (!propId) {
-    const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any;
-    if (prop) propId = prop.property_id;
-  }
+  if (!propId) { const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any; if (prop) propId = prop.property_id; }
   if (!propId) return { activeUsers: 0, topPages: [], error: 'No GA4 property configured' };
-  
   const token = await getValidToken(env, userId, 'google_analytics');
   if (!token) return { activeUsers: 0, topPages: [], error: 'Google Analytics not connected' };
-  
   try {
-    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runRealtimeReport`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dimensions: [{ name: 'unifiedScreenName' }],
-        metrics: [{ name: 'activeUsers' }],
-        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
-        limit: 10
-      })
-    });
-    
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runRealtimeReport`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dimensions: [{ name: 'unifiedScreenName' }], metrics: [{ name: 'activeUsers' }], orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }], limit: 10 }) });
     if (!response.ok) return { activeUsers: 0, topPages: [], error: `GA4 API error: ${await response.text()}` };
-    
     const data: any = await response.json();
-    let totalUsers = 0;
-    const topPages: any[] = [];
-    
-    if (data.rows) {
-      for (const row of data.rows) {
-        const users = parseInt(row.metricValues[0]?.value || 0);
-        totalUsers += users;
-        topPages.push({ pageTitle: row.dimensionValues[0]?.value || 'Unknown', activeUsers: users });
-      }
-    }
-    
+    let totalUsers = 0; const topPages: any[] = [];
+    if (data.rows) { for (const row of data.rows) { const users = parseInt(row.metricValues[0]?.value || 0); totalUsers += users; topPages.push({ pageTitle: row.dimensionValues[0]?.value || 'Unknown', activeUsers: users }); } }
     return { activeUsers: totalUsers, topPages };
   } catch (e: any) { return { activeUsers: 0, topPages: [], error: e.message }; }
 }
 
 async function getAnalyticsTopContent(env: Env, userId: string, url: URL) {
-  const propertyId = url.searchParams.get('property_id');
-  const days = parseInt(url.searchParams.get('days') || '30');
-  const limit = parseInt(url.searchParams.get('limit') || '10');
-  
+  const propertyId = url.searchParams.get('property_id'), days = parseInt(url.searchParams.get('days') || '30'), limit = parseInt(url.searchParams.get('limit') || '10');
   let propId = propertyId;
-  if (!propId) {
-    const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any;
-    if (prop) propId = prop.property_id;
-  }
+  if (!propId) { const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any; if (prop) propId = prop.property_id; }
   if (!propId) return { pages: [], error: 'No GA4 property configured' };
-  
   const token = await getValidToken(env, userId, 'google_analytics');
   if (!token) return { pages: [], error: 'Google Analytics not connected' };
-  
   try {
-    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-        dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
-        metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }, { name: 'averageSessionDuration' }],
-        orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
-        limit
-      })
-    });
-    
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }], dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }], metrics: [{ name: 'screenPageViews' }, { name: 'activeUsers' }, { name: 'averageSessionDuration' }], orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }], limit }) });
     if (!response.ok) return { pages: [], error: `GA4 API error: ${await response.text()}` };
-    
-    const data: any = await response.json();
-    const pages: any[] = [];
-    if (data.rows) {
-      for (const row of data.rows) {
-        pages.push({
-          pageTitle: row.dimensionValues[0]?.value || 'Untitled',
-          pagePath: row.dimensionValues[1]?.value || '/',
-          pageViews: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
-          users: Math.round(parseFloat(row.metricValues[1]?.value || 0)),
-          avgDuration: parseFloat(row.metricValues[2]?.value || 0)
-        });
-      }
-    }
+    const data: any = await response.json(); const pages: any[] = [];
+    if (data.rows) { for (const row of data.rows) { pages.push({ pageTitle: row.dimensionValues[0]?.value || 'Untitled', pagePath: row.dimensionValues[1]?.value || '/', pageViews: Math.round(parseFloat(row.metricValues[0]?.value || 0)), users: Math.round(parseFloat(row.metricValues[1]?.value || 0)), avgDuration: parseFloat(row.metricValues[2]?.value || 0) }); } }
     return { pages };
   } catch (e: any) { return { pages: [], error: e.message }; }
 }
 
 async function getAnalyticsSources(env: Env, userId: string, url: URL) {
-  const propertyId = url.searchParams.get('property_id');
-  const days = parseInt(url.searchParams.get('days') || '30');
-  
+  const propertyId = url.searchParams.get('property_id'), days = parseInt(url.searchParams.get('days') || '30');
   let propId = propertyId;
-  if (!propId) {
-    const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any;
-    if (prop) propId = prop.property_id;
-  }
+  if (!propId) { const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any; if (prop) propId = prop.property_id; }
   if (!propId) return { sources: [], error: 'No GA4 property configured' };
-  
   const token = await getValidToken(env, userId, 'google_analytics');
   if (!token) return { sources: [], error: 'Google Analytics not connected' };
-  
   try {
-    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-        dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
-        metrics: [{ name: 'sessions' }, { name: 'activeUsers' }, { name: 'bounceRate' }],
-        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
-        limit: 15
-      })
-    });
-    
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }], dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }], metrics: [{ name: 'sessions' }, { name: 'activeUsers' }, { name: 'bounceRate' }], orderBys: [{ metric: { metricName: 'sessions' }, desc: true }], limit: 15 }) });
     if (!response.ok) return { sources: [], error: `GA4 API error: ${await response.text()}` };
-    
-    const data: any = await response.json();
-    const sources: any[] = [];
-    if (data.rows) {
-      for (const row of data.rows) {
-        sources.push({
-          source: row.dimensionValues[0]?.value || '(direct)',
-          medium: row.dimensionValues[1]?.value || '(none)',
-          sessions: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
-          users: Math.round(parseFloat(row.metricValues[1]?.value || 0)),
-          bounceRate: parseFloat(row.metricValues[2]?.value || 0) * 100
-        });
-      }
-    }
+    const data: any = await response.json(); const sources: any[] = [];
+    if (data.rows) { for (const row of data.rows) { sources.push({ source: row.dimensionValues[0]?.value || '(direct)', medium: row.dimensionValues[1]?.value || '(none)', sessions: Math.round(parseFloat(row.metricValues[0]?.value || 0)), users: Math.round(parseFloat(row.metricValues[1]?.value || 0)), bounceRate: parseFloat(row.metricValues[2]?.value || 0) * 100 }); } }
     return { sources };
   } catch (e: any) { return { sources: [], error: e.message }; }
 }
 
 async function getAnalyticsGeography(env: Env, userId: string, url: URL) {
-  const propertyId = url.searchParams.get('property_id');
-  const days = parseInt(url.searchParams.get('days') || '30');
-  
+  const propertyId = url.searchParams.get('property_id'), days = parseInt(url.searchParams.get('days') || '30');
   let propId = propertyId;
-  if (!propId) {
-    const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any;
-    if (prop) propId = prop.property_id;
-  }
+  if (!propId) { const prop = await env.DB.prepare('SELECT property_id FROM analytics_properties WHERE user_id = ? LIMIT 1').bind(userId).first() as any; if (prop) propId = prop.property_id; }
   if (!propId) return { countries: [], error: 'No GA4 property configured' };
-  
   const token = await getValidToken(env, userId, 'google_analytics');
   if (!token) return { countries: [], error: 'Google Analytics not connected' };
-  
   try {
-    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
-        dimensions: [{ name: 'country' }],
-        metrics: [{ name: 'activeUsers' }, { name: 'sessions' }],
-        orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }],
-        limit: 20
-      })
-    });
-    
+    const response = await fetch(`${ANALYTICS_DATA_API}/properties/${propId}:runReport`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }], dimensions: [{ name: 'country' }], metrics: [{ name: 'activeUsers' }, { name: 'sessions' }], orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }], limit: 20 }) });
     if (!response.ok) return { countries: [], error: `GA4 API error: ${await response.text()}` };
-    
-    const data: any = await response.json();
-    const countries: any[] = [];
-    if (data.rows) {
-      for (const row of data.rows) {
-        countries.push({
-          country: row.dimensionValues[0]?.value || 'Unknown',
-          users: Math.round(parseFloat(row.metricValues[0]?.value || 0)),
-          sessions: Math.round(parseFloat(row.metricValues[1]?.value || 0))
-        });
-      }
-    }
+    const data: any = await response.json(); const countries: any[] = [];
+    if (data.rows) { for (const row of data.rows) { countries.push({ country: row.dimensionValues[0]?.value || 'Unknown', users: Math.round(parseFloat(row.metricValues[0]?.value || 0)), sessions: Math.round(parseFloat(row.metricValues[1]?.value || 0)) }); } }
     return { countries };
   } catch (e: any) { return { countries: [], error: e.message }; }
 }
@@ -1163,22 +840,61 @@ async function getAnalyticsGeography(env: Env, userId: string, url: URL) {
 async function getStatsOverview(env: Env, userId: string) {
   const taskStats = await getTaskStats(env, userId);
   const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-  
   let weekCompleted = 0, sprint = null, handoffPending = 0;
-  
-  try {
-    const wc = await env.DB.prepare(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at >= ?`).bind(userId, weekAgo.toISOString()).first() as any;
-    weekCompleted = wc?.count || 0;
-  } catch (e) {}
-  
+  try { const wc = await env.DB.prepare(`SELECT COUNT(*) as count FROM tasks WHERE user_id = ? AND status = 'done' AND completed_at >= ?`).bind(userId, weekAgo.toISOString()).first() as any; weekCompleted = wc?.count || 0; } catch (e) {}
   try { sprint = await env.DB.prepare(`SELECT * FROM sprints WHERE user_id = ? AND status = 'active' LIMIT 1`).bind(userId).first(); } catch (e) {}
-  
-  try {
-    const hp = await env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_queue WHERE status = 'pending'`).first() as any;
-    handoffPending = hp?.count || 0;
-  } catch (e) {}
-  
+  try { const hp = await env.DB.prepare(`SELECT COUNT(*) as count FROM handoff_queue WHERE status = 'pending'`).first() as any; handoffPending = hp?.count || 0; } catch (e) {}
   return { tasks: taskStats, weekCompleted, activeSprint: sprint || null, handoffPending };
+}
+
+// ==================
+// PROTECTED REPOS HANDLERS
+// ==================
+async function listProtectedRepos(env: Env, userId: string) {
+  try {
+    const result = await env.DB.prepare('SELECT * FROM protected_repos WHERE protected_by = ? ORDER BY protected_at DESC').bind(userId).all();
+    return { repos: result.results || [] };
+  } catch (e: any) { return { repos: [], error: e.message }; }
+}
+
+async function addProtectedRepo(env: Env, userId: string, data: any) {
+  if (!data.repo) { return { error: 'Repository name is required' }; }
+  const existing = await env.DB.prepare('SELECT id FROM protected_repos WHERE repo = ?').bind(data.repo).first();
+  if (existing) { return { error: 'Repository is already protected' }; }
+  const id = `prot-${crypto.randomUUID().slice(0, 8)}`;
+  const now = new Date().toISOString();
+  await env.DB.prepare('INSERT INTO protected_repos (id, repo, protected_by, protected_at, reason) VALUES (?, ?, ?, ?, ?)').bind(id, data.repo, userId, now, data.reason || null).run();
+  return { id, success: true };
+}
+
+async function updateProtectedRepo(env: Env, userId: string, repoId: string, data: any) {
+  const fields: string[] = [], params: any[] = [];
+  if (data.reason !== undefined) { fields.push('reason = ?'); params.push(data.reason || null); }
+  if (fields.length === 0) { return { error: 'No valid fields to update' }; }
+  params.push(userId, repoId);
+  await env.DB.prepare(`UPDATE protected_repos SET ${fields.join(', ')} WHERE protected_by = ? AND id = ?`).bind(...params).run();
+  return { success: true };
+}
+
+async function deleteProtectedRepo(env: Env, userId: string, repoId: string) {
+  const result = await env.DB.prepare('DELETE FROM protected_repos WHERE id = ? AND protected_by = ?').bind(repoId, userId).run();
+  return { success: true, deleted: result.meta?.changes || 0 };
+}
+
+// ==================
+// GITHUB HANDLERS
+// ==================
+async function listGitHubRepos(env: Env, userId: string) {
+  const token = await getValidToken(env, userId, 'github');
+  if (!token) { return { repos: [], error: 'GitHub not connected', needsConnection: true }; }
+  try {
+    const response = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'UP-Command' }
+    });
+    if (!response.ok) { const error = await response.text(); return { repos: [], error: `GitHub API error: ${error}` }; }
+    const repos: any[] = await response.json();
+    return { repos: repos.map(r => ({ id: r.id, name: r.name, full_name: r.full_name, private: r.private, description: r.description, language: r.language, updated_at: r.updated_at, html_url: r.html_url })) };
+  } catch (e: any) { return { repos: [], error: e.message }; }
 }
 
 // ==================
@@ -1186,54 +902,28 @@ async function getStatsOverview(env: Env, userId: string) {
 // ==================
 async function handleGoogleOAuth(request: Request, env: Env, workerUrl: string): Promise<Response> {
   const url = new URL(request.url);
-  const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
+  const code = url.searchParams.get('code'), state = url.searchParams.get('state');
   if (!code || !state) return new Response('Missing params', { status: 400 });
-
   const [stateUserId, provider] = state.includes(':') ? state.split(':') : [state, 'google_drive'];
-
-  const tokenResp = await fetch(GOOGLE_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      code, client_id: env.GOOGLE_CLIENT_ID || '', client_secret: env.GOOGLE_CLIENT_SECRET || '',
-      redirect_uri: workerUrl + '/oauth/callback', grant_type: 'authorization_code'
-    }),
-  });
-
+  const tokenResp = await fetch(GOOGLE_TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ code, client_id: env.GOOGLE_CLIENT_ID || '', client_secret: env.GOOGLE_CLIENT_SECRET || '', redirect_uri: workerUrl + '/oauth/callback', grant_type: 'authorization_code' }) });
   if (!tokenResp.ok) return new Response('Token failed: ' + await tokenResp.text(), { status: 500 });
-
   const tokens: any = await tokenResp.json();
-  const exp = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-  const now = new Date().toISOString();
-
+  const exp = new Date(Date.now() + tokens.expires_in * 1000).toISOString(), now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?, updated_at = ?`).bind(crypto.randomUUID(), stateUserId, provider, tokens.access_token, tokens.refresh_token, exp, now, now, tokens.access_token, tokens.refresh_token, exp, now).run();
-
   const serviceName = SERVICE_NAMES[provider] || provider;
   return new Response(`<html><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;background:#0f172a;color:#e2e8f0"><div style="text-align:center"><h1>✅ ${serviceName} Connected!</h1><p>Close this window and return to Claude</p></div></body></html>`, { headers: { 'Content-Type': 'text/html' } });
 }
 
 async function handleGitHubOAuth(request: Request, env: Env, workerUrl: string): Promise<Response> {
   const url = new URL(request.url);
-  const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
+  const code = url.searchParams.get('code'), state = url.searchParams.get('state');
   if (!code || !state) return new Response('Missing params', { status: 400 });
-
   const [stateUserId] = state.split(':');
-
-  const tokenResp = await fetch(GITHUB_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID || '', client_secret: env.GITHUB_CLIENT_SECRET || '', code, redirect_uri: workerUrl + '/oauth/github/callback' }),
-  });
-
+  const tokenResp = await fetch(GITHUB_TOKEN_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ client_id: env.GITHUB_CLIENT_ID || '', client_secret: env.GITHUB_CLIENT_SECRET || '', code, redirect_uri: workerUrl + '/oauth/github/callback' }) });
   if (!tokenResp.ok) return new Response('GitHub token failed: ' + await tokenResp.text(), { status: 500 });
-
   const tokens: any = await tokenResp.json();
   if (tokens.error) return new Response('GitHub error: ' + tokens.error_description, { status: 500 });
-
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO oauth_tokens (id, user_id, provider, access_token, refresh_token, expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, provider) DO UPDATE SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expires_at = ?, updated_at = ?`).bind(crypto.randomUUID(), stateUserId, 'github', tokens.access_token, null, null, now, now, tokens.access_token, null, null, now).run();
-
   return new Response(`<html><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;height:100vh;background:#0f172a;color:#e2e8f0"><div style="text-align:center"><h1>✅ GitHub Connected!</h1><p>Close this window and return to Claude</p></div></body></html>`, { headers: { 'Content-Type': 'text/html' } });
 }
