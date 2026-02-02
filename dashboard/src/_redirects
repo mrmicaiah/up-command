@@ -1,0 +1,4 @@
+# Capture PWA - serve index.html for all /capture/* routes (SPA routing)
+/capture/* /capture/index.html 200
+
+# Let everything else through normally
