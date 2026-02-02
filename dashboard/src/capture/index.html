@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Photo Capture</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📸%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📸%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen">
+      <div class="login-container">
+        <div class="login-header">
+          <div class="camera-icon">📸</div>
+          <h1 id="portal-name">Photo Capture</h1>
+          <p class="login-subtitle">Enter your PIN to continue</p>
+        </div>
+        <div class="pin-input-container">
+          <input type="tel" id="pin-input" maxlength="4" pattern="[0-9]*" inputmode="numeric" placeholder="• • • •" autocomplete="off">
+          <div class="pin-dots">
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+            <span class="pin-dot"></span>
+          </div>
+        </div>
+        <button id="login-btn" class="btn-primary btn-large" disabled>Unlock</button>
+        <p id="login-error" class="error-text hidden"></p>
+      </div>
+    </div>
+
+    <!-- Main Capture Screen -->
+    <div id="main-screen" class="screen hidden">
+      <header class="main-header">
+        <h1 id="header-title">Photo Capture</h1>
+        <div class="stats-badge">
+          <span id="upload-count">0</span> photos
+        </div>
+      </header>
+
+      <main class="main-content">
+        <!-- Capture Button -->
+        <div class="capture-section">
+          <label class="capture-btn" for="camera-input">
+            <div class="capture-icon">📷</div>
+            <span>Tap to Capture</span>
+          </label>
+          <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
+        </div>
+
+        <!-- Upload Progress -->
+        <div id="upload-progress" class="upload-progress hidden">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="progress-text">Uploading...</p>
+        </div>
+
+        <!-- Success Feedback -->
+        <div id="upload-success" class="upload-success hidden">
+          <div class="success-icon">✓</div>
+          <p>Photo uploaded!</p>
+        </div>
+
+        <!-- Offline Queue Indicator -->
+        <div id="offline-banner" class="offline-banner hidden">
+          <span class="offline-icon">📴</span>
+          <span><span id="queue-count">0</span> photos queued for upload</span>
+        </div>
+
+        <!-- Recent Uploads -->
+        <div class="recent-section">
+          <h2>Recent Uploads</h2>
+          <div id="recent-grid" class="recent-grid">
+            <p class="empty-state">No photos yet</p>
+          </div>
+        </div>
+      </main>
+
+      <!-- Install Prompt -->
+      <div id="install-prompt" class="install-prompt hidden">
+        <p>Add to Home Screen for quick access</p>
+        <button id="install-btn" class="btn-secondary">Install</button>
+        <button id="dismiss-install" class="btn-ghost">Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
