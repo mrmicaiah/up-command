@@ -57,10 +57,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function extractSlugFromUrl() {
-  // URL pattern: /capture/[client-slug]
+  // Try query parameter first: /capture/?c=client-slug
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('c')) {
+    state.slug = params.get('c');
+    return;
+  }
+  
+  // Try hash: /capture/#client-slug
+  if (window.location.hash && window.location.hash.length > 1) {
+    state.slug = window.location.hash.slice(1);
+    return;
+  }
+  
+  // Try path: /capture/client-slug
   const path = window.location.pathname;
   const match = path.match(/\/capture\/([^/]+)/);
-  if (match) {
+  if (match && match[1] !== 'index.html') {
     state.slug = match[1];
   }
 }
