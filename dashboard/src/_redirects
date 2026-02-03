@@ -1,4 +1,7 @@
-# Capture PWA - serve index.html for all /capture/* routes (SPA routing)
+# Capture PWA - SPA routing for client slugs
+/capture/index.html /capture/index.html 200
+/capture/app.js /capture/app.js 200
+/capture/styles.css /capture/styles.css 200
+/capture/manifest.json /capture/manifest.json 200
+/capture/sw.js /capture/sw.js 200
 /capture/* /capture/index.html 200
-
-# Let everything else through normally
