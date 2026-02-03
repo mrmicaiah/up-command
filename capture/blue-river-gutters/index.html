@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>Photo Capture</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap');
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
+    :root {
+      --bg: #1a1a2e;
+      --bg-card: #16213e;
+      --accent: #e94560;
+      --accent-glow: rgba(233, 69, 96, 0.3);
+      --text: #eaeaea;
+      --text-dim: #8b8b9e;
+      --success: #4ade80;
+      --border: rgba(255,255,255,0.08);
+    }
+    
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+    
+    #login-screen {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: linear-gradient(135deg, var(--bg) 0%, #0f0f23 100%);
+    }
+    
+    .login-card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      width: 100%;
+      max-width: 340px;
+      border: 1px solid var(--border);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+    }
+    
+    .login-icon {
+      width: 64px;
+      height: 64px;
+      background: var(--accent);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 8px 32px var(--accent-glow);
+    }
+    
+    .login-icon svg { width: 32px; height: 32px; fill: white; }
+    
+    .login-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+    
+    .login-subtitle {
+      color: var(--text-dim);
+      text-align: center;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    
+    .pin-input-wrapper {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .pin-digit {
+      width: 56px;
+      height: 64px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text);
+      text-align: center;
+      transition: all 0.2s;
+    }
+    
+    .pin-digit:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+    
+    .pin-digit.filled { border-color: var(--accent); }
+    
+    .login-btn {
+      width: 100%;
+      padding: 1rem;
+      background: var(--accent);
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    
+    .login-btn:active { transform: scale(0.98); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .login-error {
+      color: var(--accent);
+      text-align: center;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      min-height: 1.25rem;
+    }
+    
+    #app-screen {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+    }
+    
+    .app-header {
+      padding: 1rem 1.25rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    
+    .client-name { font-weight: 700; font-size: 1.1rem; }
+    
+    .upload-count {
+      background: var(--accent);
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    
+    .capture-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      gap: 1.5rem;
+    }
+    
+    .capture-btn {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent) 0%, #c73e54 100%);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 40px var(--accent-glow), inset 0 2px 0 rgba(255,255,255,0.2);
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .capture-btn::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      opacity: 0.3;
+    }
+    
+    .capture-btn:active { transform: scale(0.95); }
+    .capture-btn svg { width: 48px; height: 48px; fill: white; }
+    .capture-hint { color: var(--text-dim); font-size: 0.9rem; }
+    
+    .gallery-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 1.5rem;
+      color: var(--text);
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .gallery-btn svg { width: 18px; height: 18px; fill: var(--text-dim); }
+    
+    .upload-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      backdrop-filter: blur(8px);
+    }
+    
+    .upload-overlay.active { display: flex; }
+    
+    .upload-modal {
+      background: var(--bg-card);
+      border-radius: 20px;
+      padding: 2rem;
+      text-align: center;
+      width: 90%;
+      max-width: 300px;
+      border: 1px solid var(--border);
+    }
+    
+    .upload-spinner {
+      width: 56px;
+      height: 56px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1.25rem;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .upload-status { font-weight: 500; margin-bottom: 0.5rem; }
+    .upload-detail { color: var(--text-dim); font-size: 0.85rem; }
+    
+    .upload-modal.success .upload-spinner { display: none; }
+    
+    .upload-modal.success::before {
+      content: '✓';
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 56px;
+      height: 56px;
+      background: var(--success);
+      border-radius: 50%;
+      font-size: 1.75rem;
+      color: white;
+      margin: 0 auto 1.25rem;
+    }
+    
+    .recent-section {
+      padding: 1.25rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+    }
+    
+    .recent-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    
+    .recent-title { font-weight: 600; font-size: 0.95rem; }
+    
+    .recent-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    
+    .recent-thumb {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      object-fit: cover;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+    
+    .recent-empty {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      padding: 1rem;
+    }
+    
+    #camera-input, #gallery-input { display: none; }
+  </style>
+</head>
+<body>
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+      </div>
+      <h1 class="login-title">Blue River Gutters</h1>
+      <p class="login-subtitle">Enter your 4-digit PIN to continue</p>
+      <div class="pin-input-wrapper">
+        <input type="tel" class="pin-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input type="tel" class="pin-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input type="tel" class="pin-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+        <input type="tel" class="pin-digit" maxlength="1" inputmode="numeric" pattern="[0-9]*">
+      </div>
+      <button class="login-btn" id="login-btn" disabled>Unlock</button>
+      <p class="login-error" id="login-error"></p>
+    </div>
+  </div>
+
+  <div id="app-screen">
+    <header class="app-header">
+      <span class="client-name" id="client-name">Blue River Gutters</span>
+      <span class="upload-count" id="upload-count">0 photos</span>
+    </header>
+    
+    <div class="capture-area">
+      <button class="capture-btn" id="capture-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+      </button>
+      <p class="capture-hint">Tap to take a photo</p>
+      <button class="gallery-btn" id="gallery-btn">
+        <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+        Choose from gallery
+      </button>
+    </div>
+    
+    <div class="recent-section">
+      <div class="recent-header">
+        <span class="recent-title">Recent Uploads</span>
+      </div>
+      <div class="recent-grid" id="recent-grid">
+        <p class="recent-empty">No uploads yet</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-overlay" id="upload-overlay">
+    <div class="upload-modal" id="upload-modal">
+      <div class="upload-spinner"></div>
+      <p class="upload-status" id="upload-status">Uploading...</p>
+      <p class="upload-detail" id="upload-detail">Please wait</p>
+    </div>
+  </div>
+
+  <input type="file" id="camera-input" accept="image/*" capture="environment">
+  <input type="file" id="gallery-input" accept="image/*" multiple>
+
+  <script>
+    const API_BASE = 'https://productivity-mcp-server.micaiah-tasks.workers.dev/api/capture';
+    const CLIENT_SLUG = 'blue-river-gutters';
+    
+    let portalId = null;
+    let portalName = 'Blue River Gutters';
+    
+    const loginScreen = document.getElementById('login-screen');
+    const appScreen = document.getElementById('app-screen');
+    const pinDigits = document.querySelectorAll('.pin-digit');
+    const loginBtn = document.getElementById('login-btn');
+    const loginError = document.getElementById('login-error');
+    const clientNameEl = document.getElementById('client-name');
+    const uploadCount = document.getElementById('upload-count');
+    const captureBtn = document.getElementById('capture-btn');
+    const galleryBtn = document.getElementById('gallery-btn');
+    const cameraInput = document.getElementById('camera-input');
+    const galleryInput = document.getElementById('gallery-input');
+    const uploadOverlay = document.getElementById('upload-overlay');
+    const uploadModal = document.getElementById('upload-modal');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadDetail = document.getElementById('upload-detail');
+    const recentGrid = document.getElementById('recent-grid');
+    
+    pinDigits.forEach((input, index) => {
+      input.addEventListener('input', (e) => {
+        const value = e.target.value.replace(/\D/g, '');
+        e.target.value = value;
+        if (value && index < 3) pinDigits[index + 1].focus();
+        e.target.classList.toggle('filled', value.length > 0);
+        checkPinComplete();
+      });
+      
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && index > 0) {
+          pinDigits[index - 1].focus();
+        }
+      });
+      
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const paste = (e.clipboardData || window.clipboardData).getData('text');
+        const digits = paste.replace(/\D/g, '').slice(0, 4);
+        digits.split('').forEach((digit, i) => {
+          if (pinDigits[i]) {
+            pinDigits[i].value = digit;
+            pinDigits[i].classList.add('filled');
+          }
+        });
+        const focusIndex = Math.min(digits.length, 3);
+        pinDigits[focusIndex].focus();
+        checkPinComplete();
+      });
+    });
+    
+    function checkPinComplete() {
+      const pin = Array.from(pinDigits).map(d => d.value).join('');
+      loginBtn.disabled = pin.length !== 4;
+    }
+    
+    function getPin() {
+      return Array.from(pinDigits).map(d => d.value).join('');
+    }
+    
+    async function authenticate() {
+      const pin = getPin();
+      loginError.textContent = '';
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'Checking...';
+      
+      try {
+        const resp = await fetch(`${API_BASE}/auth`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: CLIENT_SLUG, pin })
+        });
+        
+        const data = await resp.json();
+        
+        if (!resp.ok || !data.success) {
+          throw new Error(data.error || 'Invalid PIN');
+        }
+        
+        portalId = data.portal_id;
+        portalName = data.portal_name;
+        
+        sessionStorage.setItem('capture_portal_id', portalId);
+        sessionStorage.setItem('capture_portal_name', portalName);
+        
+        showApp();
+        
+      } catch (err) {
+        loginError.textContent = err.message;
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Unlock';
+        pinDigits.forEach(d => d.value = '');
+        pinDigits[0].focus();
+      }
+    }
+    
+    loginBtn.addEventListener('click', authenticate);
+    
+    function showApp() {
+      loginScreen.style.display = 'none';
+      appScreen.style.display = 'flex';
+      clientNameEl.textContent = portalName;
+      loadRecentUploads();
+    }
+    
+    captureBtn.addEventListener('click', () => cameraInput.click());
+    galleryBtn.addEventListener('click', () => galleryInput.click());
+    
+    cameraInput.addEventListener('change', handleFiles);
+    galleryInput.addEventListener('change', handleFiles);
+    
+    async function handleFiles(e) {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      
+      for (const file of files) {
+        await uploadFile(file);
+      }
+      
+      cameraInput.value = '';
+      galleryInput.value = '';
+      loadRecentUploads();
+    }
+    
+    async function uploadFile(file) {
+      showUploadOverlay('Uploading...', file.name);
+      
+      try {
+        const formData = new FormData();
+        formData.append('portal_id', portalId);
+        formData.append('image', file);
+        
+        const resp = await fetch(`${API_BASE}/upload`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await resp.json();
+        
+        if (!resp.ok || !data.success) {
+          throw new Error(data.error || 'Upload failed');
+        }
+        
+        showUploadSuccess();
+        
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+        hideUploadOverlay();
+      }
+    }
+    
+    function showUploadOverlay(status, detail) {
+      uploadModal.classList.remove('success');
+      uploadStatus.textContent = status;
+      uploadDetail.textContent = detail;
+      uploadOverlay.classList.add('active');
+    }
+    
+    function showUploadSuccess() {
+      uploadModal.classList.add('success');
+      uploadStatus.textContent = 'Uploaded!';
+      uploadDetail.textContent = 'Photo saved successfully';
+      setTimeout(hideUploadOverlay, 1500);
+    }
+    
+    function hideUploadOverlay() {
+      uploadOverlay.classList.remove('active');
+    }
+    
+    async function loadRecentUploads() {
+      try {
+        const resp = await fetch(`${API_BASE}/recent?portal_id=${portalId}`);
+        const data = await resp.json();
+        const uploads = data.uploads || [];
+        
+        const statsResp = await fetch(`${API_BASE}/stats?portal_id=${portalId}`);
+        const stats = await statsResp.json();
+        uploadCount.textContent = `${stats.total_uploads || 0} photos`;
+        
+        if (uploads.length === 0) {
+          recentGrid.innerHTML = '<p class="recent-empty">No uploads yet</p>';
+        } else {
+          recentGrid.innerHTML = uploads.slice(0, 8).map(u => 
+            `<img class="recent-thumb" src="${u.thumbnail_url}" alt="Upload" loading="lazy">`
+          ).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load uploads:', err);
+      }
+    }
+    
+    function init() {
+      const savedPortalId = sessionStorage.getItem('capture_portal_id');
+      const savedPortalName = sessionStorage.getItem('capture_portal_name');
+      
+      if (savedPortalId && savedPortalName) {
+        portalId = savedPortalId;
+        portalName = savedPortalName;
+        showApp();
+      } else {
+        pinDigits[0].focus();
+      }
+    }
+    
+    init();
+  </script>
+</body>
+</html>

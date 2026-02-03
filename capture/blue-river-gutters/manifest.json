@@ -1,0 +1,15 @@
+{
+  "name": "Blue River Gutters - Photo Capture",
+  "short_name": "Capture",
+  "start_url": "/capture/blue-river-gutters/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#1a1a2e",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%23e94560' width='100' height='100' rx='20'/><path fill='white' d='M50 65a15 15 0 100-30 15 15 0 000 30z'/><path fill='white' d='M30 25l-5 5H15a5 5 0 00-5 5v35a5 5 0 005 5h70a5 5 0 005-5V35a5 5 0 00-5-5H75l-5-5H30zm20 45a20 20 0 110-40 20 20 0 010 40z'/></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
