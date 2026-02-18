@@ -6,7 +6,7 @@
 
 const API_ENDPOINTS = {
   micaiah: 'https://up-command.micaiah-tasks.workers.dev',
-  irene: 'https://productivity-irene.micaiah-tasks.workers.dev'
+  irene: 'https://up-command.micaiah-tasks.workers.dev'
 };
 
 /**
