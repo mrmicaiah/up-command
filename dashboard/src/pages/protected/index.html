@@ -22,6 +22,7 @@
     .repo-card:hover { border-color: var(--border-light); }
     .repo-card.protected { border-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
     .repo-card.starred { border-color: var(--accent); background: rgba(99, 102, 241, 0.08); }
+    .repo-card.starred.protected { border-color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
     .repo-icon { width: 44px; height: 44px; border-radius: var(--radius-lg); background: #24292e; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
     .repo-info { flex: 1; min-width: 0; }
     .repo-name { font-weight: var(--font-semibold); font-size: var(--text-base); margin-bottom: var(--space-1); display: flex; align-items: center; gap: var(--space-2); }
@@ -31,7 +32,7 @@
     .repo-meta { font-size: var(--text-sm); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-3); }
     .repo-reason { font-size: var(--text-sm); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic; }
     .repo-actions { display: flex; align-items: center; gap: var(--space-2); }
-    .star-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); transition: all var(--transition-fast); color: #94a3b8; }
+    .star-btn { background: none; border: none; font-size: 1.4rem; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); transition: all var(--transition-fast); color: #64748b; }
     .star-btn:hover { background: var(--bg-hover); color: #fbbf24; }
     .star-btn.starred { color: #fbbf24; }
     .toggle-protection { position: relative; width: 44px; height: 24px; background: var(--bg-hover); border: none; border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast); }
@@ -65,7 +66,8 @@
   
   <script>
     let allRepos = [];
-    let protectedRepos = {};
+    let protectedRepos = {};  // keyed by repo name, contains protection info
+    let starredRepos = {};    // keyed by repo name, for non-protected starred repos
     let githubConnected = false;
     
     document.addEventListener('DOMContentLoaded', async () => {
@@ -73,6 +75,10 @@
       if (!user) return;
       const main = initLayout('protected', { showThread: false });
       main.innerHTML = '<div class="loading-state"><div class="spinner"></div><span>Loading...</span></div>';
+      // Load starred repos from localStorage
+      try {
+        starredRepos = JSON.parse(localStorage.getItem('up_starred_repos') || '{}');
+      } catch (e) { starredRepos = {}; }
       await loadData();
     });
     
@@ -112,19 +118,24 @@
       } catch (err) { console.error('Failed to connect GitHub:', err); alert('Failed to connect GitHub. Please try again.'); }
     }
     
+    function isStarred(repoName) {
+      // Check if starred via protected_repos table or localStorage
+      const protection = protectedRepos[repoName];
+      if (protection?.starred) return true;
+      return !!starredRepos[repoName];
+    }
+    
     function renderPage() {
       const main = document.querySelector('main');
       const protectedCount = Object.keys(protectedRepos).length;
-      const starredCount = Object.values(protectedRepos).filter(r => r.starred).length;
+      const starredCount = allRepos.filter(r => isStarred(r.full_name)).length;
       
       // Sort: starred first, then protected, then alphabetical
       const sortedRepos = [...allRepos].sort((a, b) => {
-        const aP = protectedRepos[a.full_name];
-        const bP = protectedRepos[b.full_name];
-        const aStarred = aP?.starred ? 1 : 0;
-        const bStarred = bP?.starred ? 1 : 0;
-        const aProtected = aP ? 1 : 0;
-        const bProtected = bP ? 1 : 0;
+        const aStarred = isStarred(a.full_name) ? 1 : 0;
+        const bStarred = isStarred(b.full_name) ? 1 : 0;
+        const aProtected = protectedRepos[a.full_name] ? 1 : 0;
+        const bProtected = protectedRepos[b.full_name] ? 1 : 0;
         
         // Starred first
         if (aStarred !== bStarred) return bStarred - aStarred;
@@ -136,7 +147,7 @@
       
       main.innerHTML = `
         <header class="protected-header"><h1 class="protected-title">🔒 Protected</h1><p class="protected-subtitle">Prevent accidental writes to important repositories</p></header>
-        <div class="info-box"><div class="info-box-title">ℹ️ How it works</div><p>When a repository is protected, Claude's <code>github_push_file</code> and <code>github_push_files</code> tools will refuse to write to it. Star your favorites to keep them at the top.</p></div>
+        <div class="info-box"><div class="info-box-title">ℹ️ How it works</div><p>When a repository is protected, Claude's <code>github_push_file</code> and <code>github_push_files</code> tools will refuse to write to it. Star any repo to keep it at the top of your list.</p></div>
         <div class="stats-row">
           <div class="stat-item"><span class="stat-value text-accent">${starredCount}</span><span class="stat-label">Starred</span></div>
           <div class="stat-item"><span class="stat-value text-warning">${protectedCount}</span><span class="stat-label">Protected</span></div>
@@ -150,8 +161,12 @@
     function renderRepoCard(repo) {
       const protection = protectedRepos[repo.full_name];
       const isProtected = !!protection;
-      const isStarred = protection?.starred;
-      const cardClass = isStarred ? 'starred' : (isProtected ? 'protected' : '');
+      const starred = isStarred(repo.full_name);
+      
+      let cardClass = '';
+      if (starred && isProtected) cardClass = 'starred protected';
+      else if (starred) cardClass = 'starred';
+      else if (isProtected) cardClass = 'protected';
       
       return `<div class="repo-card ${cardClass}" data-repo="${repo.full_name}">
         <div class="repo-icon">🐙</div>
@@ -164,7 +179,7 @@
           ${isProtected && protection.reason ? '<div class="repo-reason">"' + escapeHtml(protection.reason) + '"</div>' : ''}
         </div>
         <div class="repo-actions">
-          ${isProtected ? `<button class="star-btn ${isStarred ? 'starred' : ''}" onclick="toggleStar('${protection.id}', ${!isStarred})" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '★' : '☆'}</button>` : ''}
+          <button class="star-btn ${starred ? 'starred' : ''}" onclick="toggleStar('${repo.full_name}', ${!starred})" title="${starred ? 'Unstar' : 'Star'}">${starred ? '★' : '☆'}</button>
           ${isProtected ? '<button class="btn btn-sm btn-secondary" onclick="editReason(\'' + repo.full_name + '\')">Edit</button>' : ''}
           <button class="toggle-protection ${isProtected ? 'active' : ''}" onclick="toggleProtection('${repo.full_name}', ${!isProtected})" title="${isProtected ? 'Remove protection' : 'Protect this repo'}"></button>
         </div>
@@ -183,21 +198,30 @@
     
     let pendingRepo = null, editingProtection = null;
     
-    async function toggleStar(protectionId, shouldStar) {
-      try {
-        await apiPost(`/api/protected-repos/${protectionId}/star`, { starred: shouldStar });
-        // Update local state
-        for (const repo in protectedRepos) {
-          if (protectedRepos[repo].id === protectionId) {
-            protectedRepos[repo].starred = shouldStar ? 1 : 0;
-            break;
-          }
+    async function toggleStar(repoName, shouldStar) {
+      const protection = protectedRepos[repoName];
+      
+      if (protection) {
+        // Protected repo - update via API
+        try {
+          await apiPost(`/api/protected-repos/${protection.id}/star`, { starred: shouldStar });
+          protection.starred = shouldStar ? 1 : 0;
+        } catch (err) {
+          console.error('Failed to toggle star:', err);
+          alert('Failed to update star status. Please try again.');
+          return;
         }
-        renderPage();
-      } catch (err) {
-        console.error('Failed to toggle star:', err);
-        alert('Failed to update star status. Please try again.');
+      } else {
+        // Non-protected repo - use localStorage
+        if (shouldStar) {
+          starredRepos[repoName] = true;
+        } else {
+          delete starredRepos[repoName];
+        }
+        localStorage.setItem('up_starred_repos', JSON.stringify(starredRepos));
       }
+      
+      renderPage();
     }
     
     async function toggleProtection(repoName, shouldProtect) {
@@ -232,9 +256,16 @@
     async function confirmProtection() {
       if (!pendingRepo) return;
       const reason = document.getElementById('protection-reason').value.trim();
+      // Preserve starred status if it was starred locally
+      const wasStarred = starredRepos[pendingRepo];
       try {
-        const result = await apiPost('/api/protected-repos', { repo: pendingRepo, reason: reason || null });
-        protectedRepos[pendingRepo] = { id: result.id, repo: pendingRepo, reason: reason || null, protected_by: 'current_user', protected_at: new Date().toISOString(), starred: 0 };
+        const result = await apiPost('/api/protected-repos', { repo: pendingRepo, reason: reason || null, starred: wasStarred ? true : false });
+        protectedRepos[pendingRepo] = { id: result.id, repo: pendingRepo, reason: reason || null, protected_by: 'current_user', protected_at: new Date().toISOString(), starred: wasStarred ? 1 : 0 };
+        // Remove from localStorage since it's now in the DB
+        if (wasStarred) {
+          delete starredRepos[pendingRepo];
+          localStorage.setItem('up_starred_repos', JSON.stringify(starredRepos));
+        }
         hideReasonModal(); renderPage();
       } catch (err) { console.error('Failed to protect repo:', err); alert('Failed to protect repository. Please try again.'); }
     }
