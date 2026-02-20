@@ -31,9 +31,9 @@
     .repo-meta { font-size: var(--text-sm); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-3); }
     .repo-reason { font-size: var(--text-sm); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic; }
     .repo-actions { display: flex; align-items: center; gap: var(--space-2); }
-    .star-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); transition: all var(--transition-fast); opacity: 0.4; }
-    .star-btn:hover { opacity: 1; background: var(--bg-hover); }
-    .star-btn.starred { opacity: 1; }
+    .star-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); transition: all var(--transition-fast); color: var(--text-muted); }
+    .star-btn:hover { background: var(--bg-hover); color: #fbbf24; }
+    .star-btn.starred { color: #fbbf24; }
     .toggle-protection { position: relative; width: 44px; height: 24px; background: var(--bg-hover); border: none; border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast); }
     .toggle-protection::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: all var(--transition-fast); }
     .toggle-protection.active { background: var(--warning); }
@@ -164,7 +164,7 @@
           ${isProtected && protection.reason ? '<div class="repo-reason">"' + escapeHtml(protection.reason) + '"</div>' : ''}
         </div>
         <div class="repo-actions">
-          ${isProtected ? `<button class="star-btn ${isStarred ? 'starred' : ''}" onclick="toggleStar('${protection.id}', ${!isStarred})" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '⭐' : '☆'}</button>` : ''}
+          ${isProtected ? `<button class="star-btn ${isStarred ? 'starred' : ''}" onclick="toggleStar('${protection.id}', ${!isStarred})" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '★' : '☆'}</button>` : ''}
           ${isProtected ? '<button class="btn btn-sm btn-secondary" onclick="editReason(\'' + repo.full_name + '\')">Edit</button>' : ''}
           <button class="toggle-protection ${isProtected ? 'active' : ''}" onclick="toggleProtection('${repo.full_name}', ${!isProtected})" title="${isProtected ? 'Remove protection' : 'Protect this repo'}"></button>
         </div>
