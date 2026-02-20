@@ -21,6 +21,7 @@
     .repo-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: var(--space-4) var(--space-5); display: flex; align-items: center; gap: var(--space-4); transition: all var(--transition-fast); }
     .repo-card:hover { border-color: var(--border-light); }
     .repo-card.protected { border-color: var(--warning); background: rgba(245, 158, 11, 0.05); }
+    .repo-card.starred { border-color: var(--accent); background: rgba(99, 102, 241, 0.08); }
     .repo-icon { width: 44px; height: 44px; border-radius: var(--radius-lg); background: #24292e; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
     .repo-info { flex: 1; min-width: 0; }
     .repo-name { font-weight: var(--font-semibold); font-size: var(--text-base); margin-bottom: var(--space-1); display: flex; align-items: center; gap: var(--space-2); }
@@ -30,6 +31,9 @@
     .repo-meta { font-size: var(--text-sm); color: var(--text-muted); display: flex; align-items: center; gap: var(--space-3); }
     .repo-reason { font-size: var(--text-sm); color: var(--text-secondary); margin-top: var(--space-1); font-style: italic; }
     .repo-actions { display: flex; align-items: center; gap: var(--space-2); }
+    .star-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); transition: all var(--transition-fast); opacity: 0.4; }
+    .star-btn:hover { opacity: 1; background: var(--bg-hover); }
+    .star-btn.starred { opacity: 1; }
     .toggle-protection { position: relative; width: 44px; height: 24px; background: var(--bg-hover); border: none; border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast); }
     .toggle-protection::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: all var(--transition-fast); }
     .toggle-protection.active { background: var(--warning); }
@@ -111,16 +115,33 @@
     function renderPage() {
       const main = document.querySelector('main');
       const protectedCount = Object.keys(protectedRepos).length;
+      const starredCount = Object.values(protectedRepos).filter(r => r.starred).length;
+      
+      // Sort: starred first, then protected, then alphabetical
       const sortedRepos = [...allRepos].sort((a, b) => {
-        const aP = !!protectedRepos[a.full_name], bP = !!protectedRepos[b.full_name];
-        if (aP && !bP) return -1;
-        if (!aP && bP) return 1;
+        const aP = protectedRepos[a.full_name];
+        const bP = protectedRepos[b.full_name];
+        const aStarred = aP?.starred ? 1 : 0;
+        const bStarred = bP?.starred ? 1 : 0;
+        const aProtected = aP ? 1 : 0;
+        const bProtected = bP ? 1 : 0;
+        
+        // Starred first
+        if (aStarred !== bStarred) return bStarred - aStarred;
+        // Then protected
+        if (aProtected !== bProtected) return bProtected - aProtected;
+        // Then alphabetical
         return a.full_name.localeCompare(b.full_name);
       });
+      
       main.innerHTML = `
         <header class="protected-header"><h1 class="protected-title">🔒 Protected</h1><p class="protected-subtitle">Prevent accidental writes to important repositories</p></header>
-        <div class="info-box"><div class="info-box-title">ℹ️ How it works</div><p>When a repository is protected, Claude's <code>github_push_file</code> and <code>github_push_files</code> tools will refuse to write to it. This prevents accidental modifications to production code or important projects.</p></div>
-        <div class="stats-row"><div class="stat-item"><span class="stat-value text-warning">${protectedCount}</span><span class="stat-label">Protected</span></div><div class="stat-item"><span class="stat-value">${allRepos.length}</span><span class="stat-label">Total Repos</span></div></div>
+        <div class="info-box"><div class="info-box-title">ℹ️ How it works</div><p>When a repository is protected, Claude's <code>github_push_file</code> and <code>github_push_files</code> tools will refuse to write to it. Star your favorites to keep them at the top.</p></div>
+        <div class="stats-row">
+          <div class="stat-item"><span class="stat-value text-accent">${starredCount}</span><span class="stat-label">Starred</span></div>
+          <div class="stat-item"><span class="stat-value text-warning">${protectedCount}</span><span class="stat-label">Protected</span></div>
+          <div class="stat-item"><span class="stat-value">${allRepos.length}</span><span class="stat-label">Total Repos</span></div>
+        </div>
         <h2 class="section-title">📁 Repositories</h2>
         ${allRepos.length === 0 ? '<div class="empty-state"><div class="empty-icon">📭</div><p>No repositories found</p></div>' : '<div class="repos-list">' + sortedRepos.map(repo => renderRepoCard(repo)).join('') + '</div>'}
         ${renderReasonModal()}`;
@@ -129,7 +150,31 @@
     function renderRepoCard(repo) {
       const protection = protectedRepos[repo.full_name];
       const isProtected = !!protection;
-      return `<div class="repo-card ${isProtected ? 'protected' : ''}" data-repo="${repo.full_name}"><div class="repo-icon">🐙</div><div class="repo-info"><div class="repo-name"><a href="https://github.com/${repo.full_name}" target="_blank">${repo.full_name}</a>${isProtected ? '<span class="protected-badge">🔒 Protected</span>' : ''}</div><div class="repo-meta">${repo.private ? '🔐 Private' : '🌐 Public'}${repo.language ? '<span>• ' + repo.language + '</span>' : ''}</div>${isProtected && protection.reason ? '<div class="repo-reason">"' + protection.reason + '"</div>' : ''}</div><div class="repo-actions">${isProtected ? '<button class="btn btn-sm btn-secondary" onclick="editReason(\'' + repo.full_name + '\')">Edit</button>' : ''}<button class="toggle-protection ${isProtected ? 'active' : ''}" onclick="toggleProtection('${repo.full_name}', ${!isProtected})" title="${isProtected ? 'Remove protection' : 'Protect this repo'}"></button></div></div>`;
+      const isStarred = protection?.starred;
+      const cardClass = isStarred ? 'starred' : (isProtected ? 'protected' : '');
+      
+      return `<div class="repo-card ${cardClass}" data-repo="${repo.full_name}">
+        <div class="repo-icon">🐙</div>
+        <div class="repo-info">
+          <div class="repo-name">
+            <a href="https://github.com/${repo.full_name}" target="_blank">${repo.full_name}</a>
+            ${isProtected ? '<span class="protected-badge">🔒 Protected</span>' : ''}
+          </div>
+          <div class="repo-meta">${repo.private ? '🔐 Private' : '🌐 Public'}${repo.language ? '<span>• ' + repo.language + '</span>' : ''}</div>
+          ${isProtected && protection.reason ? '<div class="repo-reason">"' + escapeHtml(protection.reason) + '"</div>' : ''}
+        </div>
+        <div class="repo-actions">
+          ${isProtected ? `<button class="star-btn ${isStarred ? 'starred' : ''}" onclick="toggleStar('${protection.id}', ${!isStarred})" title="${isStarred ? 'Unstar' : 'Star'}">${isStarred ? '⭐' : '☆'}</button>` : ''}
+          ${isProtected ? '<button class="btn btn-sm btn-secondary" onclick="editReason(\'' + repo.full_name + '\')">Edit</button>' : ''}
+          <button class="toggle-protection ${isProtected ? 'active' : ''}" onclick="toggleProtection('${repo.full_name}', ${!isProtected})" title="${isProtected ? 'Remove protection' : 'Protect this repo'}"></button>
+        </div>
+      </div>`;
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
     
     function renderReasonModal() {
@@ -137,6 +182,23 @@
     }
     
     let pendingRepo = null, editingProtection = null;
+    
+    async function toggleStar(protectionId, shouldStar) {
+      try {
+        await apiPost(`/api/protected-repos/${protectionId}/star`, { starred: shouldStar });
+        // Update local state
+        for (const repo in protectedRepos) {
+          if (protectedRepos[repo].id === protectionId) {
+            protectedRepos[repo].starred = shouldStar ? 1 : 0;
+            break;
+          }
+        }
+        renderPage();
+      } catch (err) {
+        console.error('Failed to toggle star:', err);
+        alert('Failed to update star status. Please try again.');
+      }
+    }
     
     async function toggleProtection(repoName, shouldProtect) {
       if (shouldProtect) {
@@ -172,7 +234,7 @@
       const reason = document.getElementById('protection-reason').value.trim();
       try {
         const result = await apiPost('/api/protected-repos', { repo: pendingRepo, reason: reason || null });
-        protectedRepos[pendingRepo] = { id: result.id, repo: pendingRepo, reason: reason || null, protected_by: 'current_user', protected_at: new Date().toISOString() };
+        protectedRepos[pendingRepo] = { id: result.id, repo: pendingRepo, reason: reason || null, protected_by: 'current_user', protected_at: new Date().toISOString(), starred: 0 };
         hideReasonModal(); renderPage();
       } catch (err) { console.error('Failed to protect repo:', err); alert('Failed to protect repository. Please try again.'); }
     }

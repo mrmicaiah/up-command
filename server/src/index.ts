@@ -1,7 +1,7 @@
 /**
  * UP Command API Server
  * REST API for the UP Command dashboard
- * Updated: 2026-01-30 - Fix sendMessage expires_at constraint
+ * Updated: 2026-02-19 - Add starred field to protected repos
  */
 
 import type { Env } from './types.js';
@@ -23,7 +23,7 @@ export default {
     // Health check
     if (url.pathname === '/' || url.pathname === '/health') {
       return new Response(JSON.stringify({
-        status: 'ok', name: 'UP Command', version: '1.0.7', user: userId
+        status: 'ok', name: 'UP Command', version: '1.0.8', user: userId
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -189,6 +189,9 @@ async function handleApiRoutes(request: Request, env: Env, url: URL, userId: str
       if (segments.length === 2) {
         if (method === 'PUT') return json(await updateProtectedRepo(env, userId, segments[1], await request.json()), cors);
         if (method === 'DELETE') return json(await deleteProtectedRepo(env, userId, segments[1]), cors);
+      }
+      if (segments.length === 3 && segments[2] === 'star' && method === 'POST') {
+        return json(await toggleStarRepo(env, userId, segments[1], await request.json()), cors);
       }
     }
 
@@ -861,7 +864,7 @@ async function getStatsOverview(env: Env, userId: string) {
 // ==================
 async function listProtectedRepos(env: Env, userId: string) {
   try {
-    const result = await env.DB.prepare('SELECT * FROM protected_repos WHERE protected_by = ? ORDER BY protected_at DESC').bind(userId).all();
+    const result = await env.DB.prepare('SELECT * FROM protected_repos WHERE protected_by = ? ORDER BY starred DESC, protected_at DESC').bind(userId).all();
     return { repos: result.results || [] };
   } catch (e: any) { return { repos: [], error: e.message }; }
 }
@@ -872,17 +875,24 @@ async function addProtectedRepo(env: Env, userId: string, data: any) {
   if (existing) { return { error: 'Repository is already protected' }; }
   const id = `prot-${crypto.randomUUID().slice(0, 8)}`;
   const now = new Date().toISOString();
-  await env.DB.prepare('INSERT INTO protected_repos (id, repo, protected_by, protected_at, reason) VALUES (?, ?, ?, ?, ?)').bind(id, data.repo, userId, now, data.reason || null).run();
+  await env.DB.prepare('INSERT INTO protected_repos (id, repo, protected_by, protected_at, reason, starred) VALUES (?, ?, ?, ?, ?, ?)').bind(id, data.repo, userId, now, data.reason || null, data.starred ? 1 : 0).run();
   return { id, success: true };
 }
 
 async function updateProtectedRepo(env: Env, userId: string, repoId: string, data: any) {
   const fields: string[] = [], params: any[] = [];
   if (data.reason !== undefined) { fields.push('reason = ?'); params.push(data.reason || null); }
+  if (data.starred !== undefined) { fields.push('starred = ?'); params.push(data.starred ? 1 : 0); }
   if (fields.length === 0) { return { error: 'No valid fields to update' }; }
   params.push(userId, repoId);
   await env.DB.prepare(`UPDATE protected_repos SET ${fields.join(', ')} WHERE protected_by = ? AND id = ?`).bind(...params).run();
   return { success: true };
+}
+
+async function toggleStarRepo(env: Env, userId: string, repoId: string, data: any) {
+  const starred = data.starred ? 1 : 0;
+  await env.DB.prepare('UPDATE protected_repos SET starred = ? WHERE protected_by = ? AND id = ?').bind(starred, userId, repoId).run();
+  return { success: true, starred: !!data.starred };
 }
 
 async function deleteProtectedRepo(env: Env, userId: string, repoId: string) {
